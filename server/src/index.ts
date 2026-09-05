@@ -7,6 +7,12 @@ import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
 import { userRouter } from './routes/users.js';
 import { patientRouter } from './routes/patients.js';
+import { departmentRouter } from './routes/departments.js';
+import { wardRouter } from './routes/wards.js';
+import { roomRouter } from './routes/rooms.js';
+import { bedRouter } from './routes/beds.js';
+import { shiftRouter } from './routes/shifts.js';
+import { assignmentRouter } from './routes/assignments.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -46,6 +52,12 @@ app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/auth', authLimiter, authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/patients', patientRouter);
+app.use('/api/v1/departments', departmentRouter);
+app.use('/api/v1/wards', wardRouter);
+app.use('/api/v1/rooms', roomRouter);
+app.use('/api/v1/beds', bedRouter);
+app.use('/api/v1/shifts', shiftRouter);
+app.use('/api/v1/assignments', assignmentRouter);
 
 app.use(notFoundHandler);
 
