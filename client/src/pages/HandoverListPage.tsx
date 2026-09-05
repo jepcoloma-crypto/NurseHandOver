@@ -28,9 +28,14 @@ export function HandoverListPage() {
           <h1 className="text-2xl font-bold text-gray-900">Handovers</h1>
           <p className="text-sm text-gray-500 mt-1">Shift handover management</p>
         </div>
-        <Link to="/handovers/new" className="bg-primary-600 text-white px-4 py-2 rounded-md text-sm hover:bg-primary-700">
-          New Handover
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/handovers/completeness" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
+            Completeness
+          </Link>
+          <Link to="/handovers/new" className="bg-primary-600 text-white px-4 py-2 rounded-md text-sm hover:bg-primary-700">
+            New Handover
+          </Link>
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4">

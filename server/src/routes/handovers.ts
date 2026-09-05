@@ -5,7 +5,8 @@ import { authenticate, AuthRequest } from '../middleware/authenticate.js';
 
 const router = Router();
 
-const SBAR_SECTIONS = ['SITUATION', 'BACKGROUND', 'ASSESSMENT', 'RECOMMENDATION'] as const;
+import { computeCompleteness, validateHandoverForSubmission } from '../lib/completeness.js';
+import type { SectionData } from '../lib/completeness.js';
 
 const createHandoverSchema = z.object({
   patientId: z.string().uuid(),
@@ -73,15 +74,6 @@ async function createHandoverSnapshot(handoverId: string, createdBy: string): Pr
       createdBy,
     },
   });
-}
-
-function computeCompleteness(sections: { sectionType: string; content: string }[]): number {
-  let filled = 0;
-  for (const type of SBAR_SECTIONS) {
-    const section = sections.find((s) => s.sectionType === type);
-    if (section && section.content.trim().length > 0) filled++;
-  }
-  return Math.round((filled / SBAR_SECTIONS.length) * 100);
 }
 
 // GET /handovers - List handovers
@@ -183,7 +175,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     );
 
     const validTransitions = VALID_TRANSITIONS[handover.status] || [];
-    const completeness = computeCompleteness(handover.sections);
+    const completeness = computeCompleteness(handover.sections as SectionData[]);
 
     res.json({
       success: true,
@@ -192,7 +184,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         versions: versionsWithUsers,
         events: eventsWithUsers,
         validTransitions,
-        completeness,
+        completeness: completeness.percentage,
+        completenessDetails: completeness,
       },
     });
   } catch (_error) {
@@ -265,13 +258,13 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const completeness = computeCompleteness(created?.sections || []);
+    const completeness = computeCompleteness((created?.sections || []) as SectionData[]);
 
     await prisma.auditLog.create({
       data: { userId: req.user?.id, action: 'CREATE', entity: 'HANDOVER', entityId: handover.id },
     });
 
-    res.status(201).json({ success: true, data: { ...created, completeness } });
+    res.status(201).json({ success: true, data: { ...created, completeness: completeness.percentage } });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({
@@ -356,9 +349,9 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const completeness = computeCompleteness(updated?.sections || []);
+    const completeness = computeCompleteness((updated?.sections || []) as SectionData[]);
 
-    res.json({ success: true, data: { ...updated, completeness } });
+    res.json({ success: true, data: { ...updated, completeness: completeness.percentage } });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({
@@ -410,11 +403,11 @@ router.post('/:id/transition', authenticate, async (req: AuthRequest, res: Respo
     }
 
     if (status === 'READY_FOR_REVIEW') {
-      const completeness = computeCompleteness(existing.sections);
-      if (completeness < 50) {
+      const validation = validateHandoverForSubmission(existing.sections as SectionData[]);
+      if (!validation.isValid) {
         res.status(400).json({
           success: false,
-          error: { code: 'INCOMPLETE', message: `Handover must be at least 50% complete to submit for review (currently ${completeness}%)` },
+          error: { code: 'INCOMPLETE', message: validation.errors.join('; ') },
         });
         return;
       }

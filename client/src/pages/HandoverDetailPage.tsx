@@ -14,14 +14,39 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-800' },
 };
 
-const SBAR_CONFIG: Record<string, { label: string; color: string }> = {
-  SITUATION: { label: 'Situation', color: 'border-blue-500 bg-blue-50' },
-  BACKGROUND: { label: 'Background', color: 'border-green-500 bg-green-50' },
-  ASSESSMENT: { label: 'Assessment', color: 'border-yellow-500 bg-yellow-50' },
-  RECOMMENDATION: { label: 'Recommendation', color: 'border-purple-500 bg-purple-50' },
+const SBAR_CONFIG: Record<string, { label: string; color: string; description: string }> = {
+  SITUATION: { label: 'Situation', color: 'border-blue-500 bg-blue-50', description: 'What is happening right now?' },
+  BACKGROUND: { label: 'Background', color: 'border-green-500 bg-green-50', description: 'What is the clinical background?' },
+  ASSESSMENT: { label: 'Assessment', color: 'border-yellow-500 bg-yellow-50', description: 'What do you think the problem is?' },
+  RECOMMENDATION: { label: 'Recommendation', color: 'border-purple-500 bg-purple-50', description: 'What should be done next?' },
 };
 
+const SBAR_TYPES = ['SITUATION', 'BACKGROUND', 'ASSESSMENT', 'RECOMMENDATION'];
+
 function formatDT(d: string) { return new Date(d).toLocaleString(); }
+
+function getCompletenessColor(p: number): string {
+  if (p >= 75) return 'bg-green-500';
+  if (p >= 50) return 'bg-yellow-500';
+  if (p >= 25) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function getCompletenessTextColor(p: number): string {
+  if (p >= 75) return 'text-green-700';
+  if (p >= 50) return 'text-yellow-700';
+  if (p >= 25) return 'text-orange-700';
+  return 'text-red-700';
+}
+
+function getCompletenessLabel(p: number): string {
+  if (p === 100) return 'Complete';
+  if (p >= 75) return 'Nearly Complete';
+  if (p >= 50) return 'Partially Complete';
+  if (p >= 25) return 'Barely Started';
+  if (p > 0) return 'Just Started';
+  return 'Empty';
+}
 
 export function HandoverDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +66,18 @@ export function HandoverDetailPage() {
   const validTransitions = handover.validTransitions || [];
   const sectionsList = handover.sections || [];
   const completeness = handover.completeness ?? 0;
+
+  const sectionAnalysis = SBAR_TYPES.map((type) => {
+    const section = sectionsList.find((s) => s.sectionType === type);
+    const content = section?.content || '';
+    const trimmed = content.trim();
+    const isEmpty = trimmed.length === 0;
+    const wordCount = isEmpty ? 0 : trimmed.split(/\s+/).filter(Boolean).length;
+    const config = SBAR_CONFIG[type];
+    return { type, config, content: trimmed, isEmpty, wordCount, charCount: trimmed.length };
+  });
+
+  const filledCount = sectionAnalysis.filter((s) => !s.isEmpty).length;
 
   const handleStartEdit = () => {
     const s: Record<string, string> = {};
@@ -71,6 +108,8 @@ export function HandoverDetailPage() {
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
         <Link to="/handovers" className="hover:text-primary-600">Handovers</Link>
         <span>/</span>
+        <Link to="/handovers/completeness" className="hover:text-primary-600">Completeness</Link>
+        <span>/</span>
         <span className="text-gray-900">Handover Detail</span>
       </div>
 
@@ -92,15 +131,16 @@ export function HandoverDetailPage() {
               <span>Shift: {handover.shift?.name}</span>
             </div>
           </div>
-          <div className="w-32">
+          <div className="w-40">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Completeness</span>
-              <span>{completeness}%</span>
+              <span>Information Completeness</span>
+              <span className={`font-medium ${getCompletenessTextColor(completeness)}`}>{completeness}%</span>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div className={`h-2 rounded-full ${completeness >= 75 ? 'bg-green-500' : completeness >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+            <div className="h-2.5 bg-gray-200 rounded-full">
+              <div className={`h-2.5 rounded-full ${getCompletenessColor(completeness)}`}
                 style={{ width: `${completeness}%` }} />
             </div>
+            <p className="text-xs text-gray-400 mt-1 text-right">{getCompletenessLabel(completeness)}</p>
           </div>
         </div>
 
@@ -149,18 +189,56 @@ export function HandoverDetailPage() {
         </div>
       </div>
 
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Completeness Breakdown</h2>
+        <p className="text-xs text-gray-400 mb-4">Information completeness only — not clinical accuracy</p>
+        <div className="grid grid-cols-4 gap-4">
+          {sectionAnalysis.map((s) => (
+            <div key={s.type} className={`border-l-4 ${s.config.color} p-4 rounded-r-lg`}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-900">{s.config.label}</h3>
+                {s.isEmpty ? (
+                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Missing</span>
+                ) : (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Filled</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">{s.config.description}</p>
+              {!s.isEmpty && (
+                <div className="mt-2 text-xs text-gray-400">
+                  <span>{s.charCount} chars</span>
+                  <span className="mx-1">·</span>
+                  <span>{s.wordCount} words</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+          <span>{filledCount}/{SBAR_TYPES.length} sections filled</span>
+          <span>·</span>
+          <span className={completeness >= 50 ? 'text-green-600' : 'text-red-600'}>
+            {completeness >= 50 ? 'Ready for submission' : `${50 - completeness}% more needed for submission`}
+          </span>
+        </div>
+      </div>
+
       <div className="space-y-4">
-        {(Object.entries(SBAR_CONFIG) as [string, typeof SBAR_CONFIG[string]][]).map(([type, config]) => {
-          const section = sectionsList.find((s) => s.sectionType === type);
-          const content = editing ? (sections[type] || '') : (section?.content || '');
+        {sectionAnalysis.map((s) => {
+          const content = editing ? (sections[s.type] || '') : s.content;
 
           return (
-            <div key={type} className={`bg-white shadow rounded-lg p-6 border-l-4 ${config.color}`}>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">{config.label}</h3>
+            <div key={s.type} className={`bg-white shadow rounded-lg p-6 border-l-4 ${s.config.color}`}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-medium text-gray-900">{s.config.label}</h3>
+                {!s.isEmpty && (
+                  <span className="text-xs text-gray-400">{s.charCount} chars, {s.wordCount} words</span>
+                )}
+              </div>
               {editing ? (
                 <textarea
-                  value={sections[type] || ''}
-                  onChange={(e) => setSections((prev) => ({ ...prev, [type]: e.target.value }))}
+                  value={sections[s.type] || ''}
+                  onChange={(e) => setSections((prev) => ({ ...prev, [s.type]: e.target.value }))}
                   rows={5}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-y"
                 />
