@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import { healthRouter } from './routes/health.js';
+import { authRouter } from './routes/auth.js';
+import { userRouter } from './routes/users.js';
+import { patientRouter } from './routes/patients.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -15,7 +18,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -25,7 +28,24 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use('/api/v1', healthRouter);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many authentication attempts, please try again later',
+    },
+  },
+});
+
+app.use('/api/v1/health', healthRouter);
+app.use('/api/v1/auth', authLimiter, authRouter);
+app.use('/api/v1/users', userRouter);
+app.use('/api/v1/patients', patientRouter);
 
 app.use(notFoundHandler);
 

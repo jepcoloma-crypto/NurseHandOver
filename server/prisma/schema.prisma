@@ -1,0 +1,484 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================
+// Authentication & Authorization
+// ===========================
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  roles            UserRole[]
+  nurseAssignments NurseAssignment[]
+  outgoingHandovers Handover[] @relation("OutgoingNurse")
+  incomingHandovers Handover[] @relation("IncomingNurse")
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  researchParticipants ResearchParticipant[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ===========================
+// Hospital Structure
+// ===========================
+
+model Department {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  wards Ward[]
+
+  @@map("departments")
+}
+
+model Ward {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100)
+  departmentId String   @map("department_id") @db.Uuid
+  capacity     Int      @default(0)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department        Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  rooms             Room[]
+  nurseAssignments  NurseAssignment[]
+  patients          Patient[]
+
+  @@unique([name, departmentId])
+  @@map("wards")
+}
+
+model Room {
+  id        String   @id @default(uuid()) @db.Uuid
+  number    String   @db.VarChar(20)
+  wardId    String   @map("ward_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ward  Ward   @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  beds  Bed[]
+
+  @@unique([number, wardId])
+  @@map("rooms")
+}
+
+model Bed {
+  id        String   @id @default(uuid()) @db.Uuid
+  number    String   @db.VarChar(20)
+  roomId    String   @map("room_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  room     Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  patients Patient[]
+
+  @@unique([number, roomId])
+  @@map("beds")
+}
+
+// ===========================
+// Shift Management
+// ===========================
+
+model Shift {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(50)
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  nurseAssignments NurseAssignment[]
+  handovers        Handover[]
+
+  @@map("shifts")
+}
+
+model NurseAssignment {
+  id          String   @id @default(uuid()) @db.Uuid
+  nurseId     String   @map("nurse_id") @db.Uuid
+  wardId      String   @map("ward_id") @db.Uuid
+  shiftId     String   @map("shift_id") @db.Uuid
+  assignedDate DateTime @map("assigned_date")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  nurse    User   @relation(fields: [nurseId], references: [id], onDelete: Restrict)
+  ward     Ward   @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  shift    Shift  @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@map("nurse_assignments")
+}
+
+// ===========================
+// Patient Management
+// ===========================
+
+model Patient {
+  id              String   @id @default(uuid()) @db.Uuid
+  mrn             String   @unique @map("mrn") @db.VarChar(50)
+  firstName       String   @map("first_name") @db.VarChar(100)
+  lastName        String   @map("last_name") @db.VarChar(100)
+  dateOfBirth     DateTime @map("date_of_birth")
+  gender          String   @db.VarChar(20)
+  admissionDate   DateTime @map("admission_date")
+  wardId          String   @map("ward_id") @db.Uuid
+  bedId           String?  @map("bed_id") @db.Uuid
+  status          String   @default("active") @db.VarChar(20)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  ward                Ward                 @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  bed                 Bed?                 @relation(fields: [bedId], references: [id], onDelete: SetNull)
+  vitalSigns          VitalSign[]
+  nursingAssessments  NursingAssessment[]
+  nursingTasks        NursingTask[]
+  handovers           Handover[]
+
+  @@map("patients")
+}
+
+// ===========================
+// Clinical Data
+// ===========================
+
+model VitalSign {
+  id          String   @id @default(uuid()) @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  recordedBy  String   @map("recorded_by") @db.Uuid
+  temperature Decimal? @db.Decimal(4, 1)
+  heartRate   Int?     @map("heart_rate")
+  respiratoryRate Int? @map("respiratory_rate")
+  bloodPressureSystolic  Int?  @map("blood_pressure_systolic")
+  bloodPressureDiastolic Int?  @map("blood_pressure_diastolic")
+  oxygenSaturation Decimal? @map("oxygen_saturation") @db.Decimal(5, 2)
+  painScale   Int?     @map("pain_scale")
+  notes       String?  @db.Text
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, recordedAt])
+  @@map("vital_signs")
+}
+
+model NursingAssessment {
+  id          String   @id @default(uuid()) @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  assessedBy  String   @map("assessed_by") @db.Uuid
+  assessmentType String @map("assessment_type") @db.VarChar(50)
+  findings    String   @db.Text
+  painScale   Int?     @map("pain_scale")
+  notes       String?  @db.Text
+  assessedAt  DateTime @default(now()) @map("assessed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, assessedAt])
+  @@map("nursing_assessments")
+}
+
+model NursingTask {
+  id          String   @id @default(uuid()) @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  assignedTo  String?  @map("assigned_to") @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  priority    String   @default("medium") @db.VarChar(20)
+  status      String   @default("pending") @db.VarChar(20)
+  dueDate     DateTime? @map("due_date")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, status])
+  @@map("nursing_tasks")
+}
+
+// ===========================
+// Handover Management
+// ===========================
+
+model Handover {
+  id              String   @id @default(uuid()) @db.Uuid
+  patientId       String   @map("patient_id") @db.Uuid
+  outgoingNurseId String   @map("outgoing_nurse_id") @db.Uuid
+  incomingNurseId String?  @map("incoming_nurse_id") @db.Uuid
+  shiftId         String   @map("shift_id") @db.Uuid
+  status          String   @default("DRAFT") @db.VarChar(30)
+  completenessScore Int?   @map("completeness_score")
+  submittedAt     DateTime? @map("submitted_at")
+  receivedAt      DateTime? @map("received_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  patient       Patient            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  outgoingNurse User               @relation("OutgoingNurse", fields: [outgoingNurseId], references: [id], onDelete: Restrict)
+  incomingNurse User?              @relation("IncomingNurse", fields: [incomingNurseId], references: [id], onDelete: SetNull)
+  shift         Shift              @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  sections      HandoverSection[]
+  versions      HandoverVersion[]
+  events        HandoverEvent[]
+  clarifications HandoverClarification[]
+
+  @@index([patientId, status])
+  @@index([outgoingNurseId, status])
+  @@index([incomingNurseId, status])
+  @@map("handovers")
+}
+
+model HandoverSection {
+  id          String   @id @default(uuid()) @db.Uuid
+  handoverId  String   @map("handover_id") @db.Uuid
+  sectionType String   @map("section_type") @db.VarChar(20)
+  content     String   @db.Text
+  isComplete  Boolean  @default(false) @map("is_complete")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@unique([handoverId, sectionType])
+  @@map("handover_sections")
+}
+
+model HandoverVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  handoverId  String   @map("handover_id") @db.Uuid
+  version     Int      @default(1)
+  snapshot    Json     @db.JsonB
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@map("handover_versions")
+}
+
+model HandoverEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  handoverId  String   @map("handover_id") @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(50)
+  userId      String   @map("user_id") @db.Uuid
+  details     Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@index([handoverId, createdAt])
+  @@map("handover_events")
+}
+
+model HandoverClarification {
+  id          String   @id @default(uuid()) @db.Uuid
+  handoverId  String   @map("handover_id") @db.Uuid
+  requestedBy String   @map("requested_by") @db.Uuid
+  question    String   @db.Text
+  response    String?  @db.Text
+  respondedBy String?  @map("responded_by") @db.Uuid
+  status      String   @default("pending") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@index([handoverId, status])
+  @@map("handover_clarifications")
+}
+
+// ===========================
+// Notifications
+// ===========================
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ===========================
+// Audit Logging
+// ===========================
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(50)
+  entity    String   @db.VarChar(50)
+  entityId  String?  @map("entity_id") @db.Uuid
+  details   Json?    @db.JsonB
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// ===========================
+// Research Module
+// ===========================
+
+model ResearchStudy {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  status      String   @default("draft") @db.VarChar(20)
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  participants ResearchParticipant[]
+  surveys      ResearchSurvey[]
+  metrics      ResearchMetric[]
+
+  @@map("research_studies")
+}
+
+model ResearchParticipant {
+  id          String   @id @default(uuid()) @db.Uuid
+  studyId     String   @map("study_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  enrolledAt  DateTime @default(now()) @map("enrolled_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  study           ResearchStudy    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surveyResponses SurveyResponse[]
+
+  @@unique([studyId, userId])
+  @@map("research_participants")
+}
+
+model ResearchSurvey {
+  id          String   @id @default(uuid()) @db.Uuid
+  studyId     String   @map("study_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  study     ResearchStudy   @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+
+  @@map("research_surveys")
+}
+
+model SurveyQuestion {
+  id          String   @id @default(uuid()) @db.Uuid
+  surveyId    String   @map("survey_id") @db.Uuid
+  question    String   @db.Text
+  questionType String @map("question_type") @db.VarChar(20)
+  options     Json?    @db.JsonB
+  isRequired  Boolean  @default(true) @map("is_required")
+  orderIndex  Int      @map("order_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  survey    ResearchSurvey  @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses SurveyResponse[]
+
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id          String   @id @default(uuid()) @db.Uuid
+  surveyId    String   @map("survey_id") @db.Uuid
+  questionId  String   @map("question_id") @db.Uuid
+  participantId String @map("participant_id") @db.Uuid
+  answer      Json     @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  survey      ResearchSurvey      @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  question    SurveyQuestion      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  participant ResearchParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@map("survey_responses")
+}
+
+model ResearchMetric {
+  id          String   @id @default(uuid()) @db.Uuid
+  studyId     String   @map("study_id") @db.Uuid
+  metricName  String   @map("metric_name") @db.VarChar(100)
+  metricValue Json     @db.JsonB
+  period      String?  @db.VarChar(50)
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  @@index([studyId, metricName])
+  @@map("research_metrics")
+}
