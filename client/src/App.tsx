@@ -21,6 +21,9 @@ import { AlertRulesPage } from './pages/AlertRulesPage';
 import { TaskDashboardPage } from './pages/TaskDashboardPage';
 import { PatientTasksPage } from './pages/PatientTasksPage';
 import { TaskDetailPage } from './pages/TaskDetailPage';
+import { HandoverListPage } from './pages/HandoverListPage';
+import { CreateHandoverPage } from './pages/CreateHandoverPage';
+import { HandoverDetailPage } from './pages/HandoverDetailPage';
 
 function App() {
   return (
@@ -36,6 +39,9 @@ function App() {
         <Route path="/patients/:id/tasks" element={<ProtectedRoute><Layout><PatientTasksPage /></Layout></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Layout><TaskDashboardPage /></Layout></ProtectedRoute>} />
         <Route path="/tasks/:id" element={<ProtectedRoute><Layout><TaskDetailPage /></Layout></ProtectedRoute>} />
+        <Route path="/handovers" element={<ProtectedRoute><Layout><HandoverListPage /></Layout></ProtectedRoute>} />
+        <Route path="/handovers/new" element={<ProtectedRoute><Layout><CreateHandoverPage /></Layout></ProtectedRoute>} />
+        <Route path="/handovers/:id" element={<ProtectedRoute><Layout><HandoverDetailPage /></Layout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Layout><NotificationsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><DepartmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/wards" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><WardsPage /></Layout></ProtectedRoute>} />

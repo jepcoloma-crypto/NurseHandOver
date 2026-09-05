@@ -435,11 +435,56 @@ export interface Task {
 
 export interface HandoverSummary {
   id: string;
+  patientId: string;
   status: string;
   createdAt: string;
   submittedAt?: string;
-  outgoingNurse?: { firstName: string; lastName: string };
-  incomingNurse?: { firstName: string; lastName: string };
+  receivedAt?: string;
+  acceptedAt?: string;
+  completeness?: number;
+  patient?: { id: string; firstName: string; lastName: string; mrn?: string };
+  outgoingNurse?: { id: string; firstName: string; lastName: string };
+  incomingNurse?: { id: string; firstName: string; lastName: string };
+  shift?: { id: string; name: string; startTime?: string; endTime?: string };
+  sections?: HandoverSection[];
+  validTransitions?: string[];
+  events?: HandoverEvent[];
+  versions?: HandoverVersion[];
+  clarifications?: HandoverClarification[];
+}
+
+export interface HandoverSection {
+  id?: string;
+  handoverId?: string;
+  sectionType: string;
+  content: string;
+  isComplete: boolean;
+}
+
+export interface HandoverEvent {
+  id: string;
+  eventType: string;
+  userId: string;
+  details?: Record<string, unknown>;
+  createdAt: string;
+  user?: { firstName: string; lastName: string };
+}
+
+export interface HandoverVersion {
+  id: string;
+  version: number;
+  snapshot: unknown;
+  createdBy: string;
+  createdAt: string;
+  createdByUser?: { firstName: string; lastName: string };
+}
+
+export interface HandoverClarification {
+  id: string;
+  question: string;
+  response?: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface Pagination {
@@ -762,5 +807,84 @@ export function useDeleteTask() {
     mutationFn: (id: string) =>
       api<{ message: string }>(`/tasks/${id}`, { method: 'DELETE', token: token || undefined }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
+export function useHandovers(filters?: { status?: string; patientId?: string; view?: string }) {
+  const { token } = useAuth();
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.patientId) params.set('patientId', filters.patientId);
+  if (filters?.view) params.set('view', filters.view);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['handovers', filters],
+    queryFn: () => api<HandoverSummary[]>(`/handovers${qs ? `?${qs}` : ''}`, { token: token || undefined }),
+  });
+}
+
+export function useHandover(id: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['handover', id],
+    queryFn: () => api<HandoverSummary>(`/handovers/${id}`, { token: token || undefined }),
+    enabled: !!id,
+  });
+}
+
+export function useCreateHandover() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { patientId: string; shiftId: string; incomingNurseId?: string; sections?: Record<string, string> }) =>
+      api<HandoverSummary>('/handovers', { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['handovers'] });
+    },
+  });
+}
+
+export function useUpdateHandover() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, sections }: { id: string; sections: Record<string, string> }) =>
+      api<HandoverSummary>(`/handovers/${id}`, { method: 'PUT', body: { sections }, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['handovers'] });
+      queryClient.invalidateQueries({ queryKey: ['handover', variables.id] });
+    },
+  });
+}
+
+export function useTransitionHandover() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api<HandoverSummary>(`/handovers/${id}/transition`, { method: 'POST', body: { status }, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['handovers'] });
+      queryClient.invalidateQueries({ queryKey: ['handover', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function usePopulateHandover() {
+  const { token } = useAuth();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<Record<string, string>>(`/handovers/${id}/populate`, { token: token || undefined }),
+  });
+}
+
+export function useDeleteHandover() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ message: string }>(`/handovers/${id}`, { method: 'DELETE', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['handovers'] }),
   });
 }
