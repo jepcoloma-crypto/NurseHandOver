@@ -202,6 +202,7 @@ model VitalSign {
   bloodPressureDiastolic Int?  @map("blood_pressure_diastolic")
   oxygenSaturation Decimal? @map("oxygen_saturation") @db.Decimal(5, 2)
   painScale   Int?     @map("pain_scale")
+  bloodGlucose Decimal? @map("blood_glucose") @db.Decimal(5, 1)
   notes       String?  @db.Text
   recordedAt  DateTime @default(now()) @map("recorded_at")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -344,6 +345,24 @@ model HandoverClarification {
 
 // ===========================
 // Notifications
+// ===========================
+// Clinical Alerts
+// ===========================
+
+model AlertRule {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  parameter   String   @db.VarChar(50)
+  operator    String   @db.VarChar(10)
+  threshold   Decimal  @db.Decimal(8, 2)
+  severity    String   @default("warning") @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("alert_rules")
+}
+
 // ===========================
 
 model Notification {

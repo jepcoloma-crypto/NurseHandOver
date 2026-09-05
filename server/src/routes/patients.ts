@@ -28,21 +28,27 @@ const updatePatientSchema = z.object({
 });
 
 const createVitalSignSchema = z.object({
-  temperature: z.number().optional(),
-  heartRate: z.number().int().optional(),
-  respiratoryRate: z.number().int().optional(),
-  bloodPressureSystolic: z.number().int().optional(),
-  bloodPressureDiastolic: z.number().int().optional(),
-  oxygenSaturation: z.number().optional(),
+  temperature: z.number().min(30).max(45).optional(),
+  heartRate: z.number().int().min(20).max(300).optional(),
+  respiratoryRate: z.number().int().min(4).max(80).optional(),
+  bloodPressureSystolic: z.number().int().min(40).max(300).optional(),
+  bloodPressureDiastolic: z.number().int().min(20).max(200).optional(),
+  oxygenSaturation: z.number().min(0).max(100).optional(),
   painScale: z.number().int().min(0).max(10).optional(),
-  notes: z.string().optional(),
+  bloodGlucose: z.number().min(0).max(1000).optional(),
+  notes: z.string().max(1000).optional(),
 });
 
 const createAssessmentSchema = z.object({
-  assessmentType: z.string().min(1).max(50),
-  findings: z.string().min(1),
+  assessmentType: z.enum([
+    'General', 'Pain', 'Neurological', 'Cardiovascular',
+    'Respiratory', 'Gastrointestinal', 'Integumentary',
+    'Musculoskeletal', 'Elimination', 'Cultural/Spiritual',
+    'Activity/Rest', 'Coping/Stress', 'Safety',
+  ]),
+  findings: z.string().min(1).max(2000),
   painScale: z.number().int().min(0).max(10).optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(1000).optional(),
 });
 
 const createTaskSchema = z.object({
@@ -428,9 +434,58 @@ router.post('/:id/vitals', authenticate, authorize('NURSE', 'SUPERVISOR', 'ADMIN
         bloodPressureDiastolic: body.bloodPressureDiastolic,
         oxygenSaturation: body.oxygenSaturation,
         painScale: body.painScale,
+        bloodGlucose: body.bloodGlucose,
         notes: body.notes,
       },
     });
+
+    const vitalsToCheck: Record<string, number | undefined> = {
+      temperature: body.temperature,
+      heartRate: body.heartRate,
+      respiratoryRate: body.respiratoryRate,
+      bloodPressureSystolic: body.bloodPressureSystolic,
+      bloodPressureDiastolic: body.bloodPressureDiastolic,
+      oxygenSaturation: body.oxygenSaturation,
+      painScale: body.painScale,
+      bloodGlucose: body.bloodGlucose,
+    };
+
+    const rules = (globalThis as Record<string, unknown>).__alertRules as
+      | { id: string; name: string; parameter: string; operator: string; threshold: { toNumber: () => number }; severity: string }[]
+      | undefined;
+
+    if (rules) {
+      const paramToValue: Record<string, number> = {};
+      for (const [key, val] of Object.entries(vitalsToCheck)) {
+        if (val !== undefined) paramToValue[key] = val;
+      }
+
+      const operatorMap: Record<string, (val: number, threshold: number) => boolean> = {
+        gt: (v, t) => v > t,
+        gte: (v, t) => v >= t,
+        lt: (v, t) => v < t,
+        lte: (v, t) => v <= t,
+        eq: (v, t) => v === t,
+      };
+
+      for (const rule of rules) {
+        const val = paramToValue[rule.parameter];
+        if (val !== undefined) {
+          const compare = operatorMap[rule.operator];
+          if (compare && compare(val, rule.threshold.toNumber())) {
+            const severityLabel = rule.severity === 'critical' ? 'CRITICAL' : rule.severity === 'warning' ? 'ALERT' : 'NOTICE';
+            await prisma.notification.create({
+              data: {
+                userId: req.user?.id ?? '',
+                type: 'VITAL_SIGN_ALERT',
+                title: `[${severityLabel}] ${rule.name}`,
+                message: `Configured alert: ${rule.parameter} value ${val} triggered "${rule.name}" (threshold: ${rule.operator} ${rule.threshold.toNumber()}). This is an automated alert based on recorded information, not a diagnosis.`,
+              },
+            });
+          }
+        }
+      }
+    }
 
     res.status(201).json({ success: true, data: vitalSign });
   } catch (error) {

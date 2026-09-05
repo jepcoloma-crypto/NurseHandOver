@@ -398,6 +398,7 @@ export interface VitalSign {
   bloodPressureDiastolic?: number;
   oxygenSaturation?: number;
   painScale?: number;
+  bloodGlucose?: number;
   notes?: string;
   recordedAt: string;
 }
@@ -623,5 +624,82 @@ export function useDeletePatient() {
     mutationFn: (id: string) =>
       api<{ message: string }>(`/patients/${id}`, { method: 'DELETE', token: token || undefined }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
+  });
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  parameter: string;
+  operator: string;
+  threshold: number;
+  severity: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export function useNotifications() {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api<{ data: Notification[]; unreadCount: number }>('/notifications', { token: token || undefined }),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<Notification>(`/notifications/${id}/read`, { method: 'PUT', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ message: string }>('/notifications/read-all', { method: 'PUT', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useAlertRules() {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['alertRules'],
+    queryFn: () => api<AlertRule[]>('/alert-rules', { token: token || undefined }),
+  });
+}
+
+export function useCreateAlertRule() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; parameter: string; operator: string; threshold: number; severity?: string }) =>
+      api<AlertRule>('/alert-rules', { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alertRules'] }),
+  });
+}
+
+export function useDeleteAlertRule() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ message: string }>(`/alert-rules/${id}`, { method: 'DELETE', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alertRules'] }),
   });
 }

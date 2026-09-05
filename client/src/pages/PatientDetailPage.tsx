@@ -18,7 +18,7 @@ export function PatientDetailPage() {
   const [vitalData, setVitalData] = useState({
     temperature: '', heartRate: '', respiratoryRate: '',
     bloodPressureSystolic: '', bloodPressureDiastolic: '',
-    oxygenSaturation: '', painScale: '',
+    oxygenSaturation: '', painScale: '', bloodGlucose: '',
   });
   const [taskData, setTaskData] = useState({ title: '', description: '', priority: 'medium' });
 
@@ -36,8 +36,9 @@ export function PatientDetailPage() {
       bloodPressureDiastolic: vitalData.bloodPressureDiastolic ? Number(vitalData.bloodPressureDiastolic) : undefined,
       oxygenSaturation: vitalData.oxygenSaturation ? Number(vitalData.oxygenSaturation) : undefined,
       painScale: vitalData.painScale ? Number(vitalData.painScale) : undefined,
+      bloodGlucose: vitalData.bloodGlucose ? Number(vitalData.bloodGlucose) : undefined,
     });
-    setVitalData({ temperature: '', heartRate: '', respiratoryRate: '', bloodPressureSystolic: '', bloodPressureDiastolic: '', oxygenSaturation: '', painScale: '' });
+    setVitalData({ temperature: '', heartRate: '', respiratoryRate: '', bloodPressureSystolic: '', bloodPressureDiastolic: '', oxygenSaturation: '', painScale: '', bloodGlucose: '' });
     setShowVitalForm(false);
   };
 
@@ -78,13 +79,20 @@ export function PatientDetailPage() {
             <p className="text-sm text-gray-500">Ward: {patient.ward?.name || '-'} | Bed: {patient.bed?.number || '-'}</p>
             <p className="text-sm text-gray-500">Admitted: {formatDate(patient.admissionDate)}</p>
           </div>
-          <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-            patient.status === 'active' ? 'bg-green-100 text-green-800' :
-            patient.status === 'discharged' ? 'bg-gray-100 text-gray-800' :
-            'bg-yellow-100 text-yellow-800'
-          }`}>
-            {patient.status}
-          </span>
+          <div className="flex gap-2">
+            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+              patient.status === 'active' ? 'bg-green-100 text-green-800' :
+              patient.status === 'discharged' ? 'bg-gray-100 text-gray-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {patient.status}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-3">
+          <Link to={`/patients/${id}/vitals`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Full Vital Signs View</Link>
+          <Link to={`/patients/${id}/assessments`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Assessments</Link>
+          <Link to={`/patients/${id}/timeline`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Timeline</Link>
         </div>
       </div>
 
@@ -113,6 +121,7 @@ export function PatientDetailPage() {
                   {vitals[0].bloodPressureSystolic && <div className="flex justify-between"><dt className="text-sm text-gray-500">Blood Pressure</dt><dd className="text-sm font-medium">{vitals[0].bloodPressureSystolic}/{vitals[0].bloodPressureDiastolic}</dd></div>}
                   {vitals[0].oxygenSaturation && <div className="flex justify-between"><dt className="text-sm text-gray-500">SpO2</dt><dd className="text-sm font-medium">{vitals[0].oxygenSaturation}%</dd></div>}
                   {vitals[0].painScale != null && <div className="flex justify-between"><dt className="text-sm text-gray-500">Pain Scale</dt><dd className="text-sm font-medium">{vitals[0].painScale}/10</dd></div>}
+                  {vitals[0].bloodGlucose && <div className="flex justify-between"><dt className="text-sm text-gray-500">Blood Glucose</dt><dd className="text-sm font-medium">{vitals[0].bloodGlucose} mg/dL</dd></div>}
                   <p className="text-xs text-gray-400 mt-2">Recorded: {formatDateTime(vitals[0].recordedAt)}</p>
                 </dl>
               ) : <p className="text-sm text-gray-500">No vital signs recorded</p>}
@@ -143,8 +152,11 @@ export function PatientDetailPage() {
           <div className="bg-white shadow rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Vital Signs History</h3>
-              <button onClick={() => setShowVitalForm(!showVitalForm)}
-                className="bg-primary-600 text-white px-3 py-1 rounded text-sm hover:bg-primary-700">Add</button>
+              <div className="flex gap-2">
+                <Link to={`/patients/${id}/vitals`} className="text-sm text-primary-600 hover:text-primary-800">Full View</Link>
+                <button onClick={() => setShowVitalForm(!showVitalForm)}
+                  className="bg-primary-600 text-white px-3 py-1 rounded text-sm hover:bg-primary-700">Add</button>
+              </div>
             </div>
             {showVitalForm && (
               <form onSubmit={handleAddVital} className="mb-6 bg-gray-50 p-4 rounded-lg space-y-3">
@@ -156,6 +168,7 @@ export function PatientDetailPage() {
                   <input type="number" placeholder="Diastolic" value={vitalData.bloodPressureDiastolic} onChange={(e) => setVitalData({ ...vitalData, bloodPressureDiastolic: e.target.value })} className="border rounded px-2 py-1 text-sm" />
                   <input type="number" step="0.1" placeholder="SpO2 %" value={vitalData.oxygenSaturation} onChange={(e) => setVitalData({ ...vitalData, oxygenSaturation: e.target.value })} className="border rounded px-2 py-1 text-sm" />
                   <input type="number" min="0" max="10" placeholder="Pain (0-10)" value={vitalData.painScale} onChange={(e) => setVitalData({ ...vitalData, painScale: e.target.value })} className="border rounded px-2 py-1 text-sm" />
+                  <input type="number" step="0.1" placeholder="Glucose (mg/dL)" value={vitalData.bloodGlucose} onChange={(e) => setVitalData({ ...vitalData, bloodGlucose: e.target.value })} className="border rounded px-2 py-1 text-sm" />
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" className="bg-primary-600 text-white px-3 py-1 rounded text-sm">Save</button>
@@ -171,6 +184,7 @@ export function PatientDetailPage() {
                 <th className="py-2 text-left text-gray-500">BP</th>
                 <th className="py-2 text-left text-gray-500">SpO2</th>
                 <th className="py-2 text-left text-gray-500">Pain</th>
+                <th className="py-2 text-left text-gray-500">Glucose</th>
               </tr></thead>
               <tbody>
                 {vitals?.map((v: VitalSign) => (
@@ -181,6 +195,7 @@ export function PatientDetailPage() {
                     <td className="py-2">{v.bloodPressureSystolic && v.bloodPressureDiastolic ? `${v.bloodPressureSystolic}/${v.bloodPressureDiastolic}` : '-'}</td>
                     <td className="py-2">{v.oxygenSaturation ?? '-'}</td>
                     <td className="py-2">{v.painScale != null ? `${v.painScale}/10` : '-'}</td>
+                    <td className="py-2">{v.bloodGlucose ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -237,7 +252,10 @@ export function PatientDetailPage() {
 
         {activeTab === 'timeline' && (
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium mb-4">Patient Timeline</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Patient Timeline</h3>
+              <Link to={`/patients/${id}/timeline`} className="text-sm text-primary-600 hover:text-primary-800">Full Timeline View</Link>
+            </div>
             {patient.vitalSigns && patient.vitalSigns.length > 0 || patient.nursingAssessments && patient.nursingAssessments.length > 0 || patient.handovers && patient.handovers.length > 0 ? (
               <div className="space-y-4">
                 {patient.vitalSigns?.map((v: VitalSign) => (

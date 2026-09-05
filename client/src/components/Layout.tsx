@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../hooks/useApi';
 
 const adminLinks = [
   { to: '/admin/departments', label: 'Departments' },
@@ -8,6 +9,7 @@ const adminLinks = [
   { to: '/admin/beds', label: 'Beds' },
   { to: '/admin/shifts', label: 'Shifts' },
   { to: '/admin/users', label: 'Users' },
+  { to: '/admin/alert-rules', label: 'Alert Rules' },
 ];
 
 const supervisorLinks = [
@@ -18,6 +20,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { data: notifData } = useNotifications();
+  const unreadCount = notifData?.unreadCount ?? 0;
 
   const handleLogout = () => {
     logout();
@@ -52,6 +56,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             }`}
           >
             Patients
+          </Link>
+
+          <Link
+            to="/notifications"
+            className={`block px-3 py-2 rounded-md text-sm font-medium ${
+              location.pathname === '/notifications' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </Link>
 
           {isAdmin && (
