@@ -274,7 +274,7 @@ async function main() {
         title: 'Monitor vital signs',
         description: 'Check vital signs every 4 hours',
         priority: 'medium',
-        status: 'pending',
+        status: 'PENDING',
         dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });

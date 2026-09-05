@@ -18,6 +18,9 @@ import { AssessmentsPage } from './pages/AssessmentsPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AlertRulesPage } from './pages/AlertRulesPage';
+import { TaskDashboardPage } from './pages/TaskDashboardPage';
+import { PatientTasksPage } from './pages/PatientTasksPage';
+import { TaskDetailPage } from './pages/TaskDetailPage';
 
 function App() {
   return (
@@ -30,6 +33,9 @@ function App() {
         <Route path="/patients/:id/vitals" element={<ProtectedRoute><Layout><VitalSignsPage /></Layout></ProtectedRoute>} />
         <Route path="/patients/:id/assessments" element={<ProtectedRoute><Layout><AssessmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/patients/:id/timeline" element={<ProtectedRoute><Layout><TimelinePage /></Layout></ProtectedRoute>} />
+        <Route path="/patients/:id/tasks" element={<ProtectedRoute><Layout><PatientTasksPage /></Layout></ProtectedRoute>} />
+        <Route path="/tasks" element={<ProtectedRoute><Layout><TaskDashboardPage /></Layout></ProtectedRoute>} />
+        <Route path="/tasks/:id" element={<ProtectedRoute><Layout><TaskDetailPage /></Layout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Layout><NotificationsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><DepartmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/wards" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><WardsPage /></Layout></ProtectedRoute>} />

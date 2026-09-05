@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { usePatient, usePatientVitals, usePatientTasks, useUpdateTask, useCreateVitalSign, useCreateTask } from '../hooks/useApi';
+import { usePatient, usePatientVitals, usePatientTasks, useTransitionTask, useCreateVitalSign, useCreateTask } from '../hooks/useApi';
 import type { VitalSign, Assessment, Task, HandoverSummary } from '../hooks/useApi';
 
 export function PatientDetailPage() {
@@ -8,9 +8,9 @@ export function PatientDetailPage() {
   const { data: patient, isLoading: patientLoading } = usePatient(id || '');
   const { data: vitals } = usePatientVitals(id || '', 5);
   const { data: tasks } = usePatientTasks(id || '', 10);
-  const updateTask = useUpdateTask();
   const createVital = useCreateVitalSign();
   const createTask = useCreateTask();
+  const transitionTask = useTransitionTask();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'vitals' | 'tasks' | 'timeline'>('overview');
   const [showVitalForm, setShowVitalForm] = useState(false);
@@ -50,7 +50,7 @@ export function PatientDetailPage() {
   };
 
   const handleCompleteTask = async (taskId: string) => {
-    await updateTask.mutateAsync({ patientId: id!, taskId, status: 'completed' });
+    await transitionTask.mutateAsync({ id: taskId, status: 'COMPLETED' });
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString();
@@ -93,6 +93,7 @@ export function PatientDetailPage() {
           <Link to={`/patients/${id}/vitals`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Full Vital Signs View</Link>
           <Link to={`/patients/${id}/assessments`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Assessments</Link>
           <Link to={`/patients/${id}/timeline`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Timeline</Link>
+          <Link to={`/patients/${id}/tasks`} className="text-sm text-primary-600 hover:text-primary-800 font-medium">All Tasks</Link>
         </div>
       </div>
 

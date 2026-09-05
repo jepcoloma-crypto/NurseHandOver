@@ -418,13 +418,19 @@ export interface Task {
   id: string;
   patientId: string;
   assignedTo?: string;
+  deferredBy?: string;
   title: string;
   description?: string;
   priority: string;
   status: string;
   dueDate?: string;
   completedAt?: string;
+  deferredReason?: string;
   createdAt: string;
+  patient?: { id: string; firstName: string; lastName: string; mrn?: string; ward?: { name: string } };
+  assignee?: { id: string; firstName: string; lastName: string };
+  deferrer?: { id: string; firstName: string; lastName: string };
+  validTransitions?: string[];
 }
 
 export interface HandoverSummary {
@@ -561,31 +567,6 @@ export function usePatientTasks(id: string, limit?: number) {
     enabled: !!id,
   });
 }
-
-export function useCreateTask() {
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ patientId, ...data }: { patientId: string; title: string; description?: string; priority?: string; dueDate?: string }) =>
-      api<Task>(`/patients/${patientId}/tasks`, { method: 'POST', body: data, token: token || undefined }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'tasks'] });
-    },
-  });
-}
-
-export function useUpdateTask() {
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ patientId, taskId, ...data }: { patientId: string; taskId: string; status?: string }) =>
-      api<Task>(`/patients/${patientId}/tasks/${taskId}`, { method: 'PUT', body: data, token: token || undefined }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'tasks'] });
-    },
-  });
-}
-
 export function useCreatePatient() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
@@ -701,5 +682,85 @@ export function useDeleteAlertRule() {
     mutationFn: (id: string) =>
       api<{ message: string }>(`/alert-rules/${id}`, { method: 'DELETE', token: token || undefined }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alertRules'] }),
+  });
+}
+
+export function useTasks(filters?: { status?: string; priority?: string; patientId?: string; assignedTo?: string }) {
+  const { token } = useAuth();
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.priority) params.set('priority', filters.priority);
+  if (filters?.patientId) params.set('patientId', filters.patientId);
+  if (filters?.assignedTo) params.set('assignedTo', filters.assignedTo);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['tasks', filters],
+    queryFn: () => api<{ data: Task[]; stats: { status: string; _count: { status: number } }[] }>(`/tasks${qs ? `?${qs}` : ''}`, { token: token || undefined }),
+  });
+}
+
+export function useTask(id: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['task', id],
+    queryFn: () => api<Task>(`/tasks/${id}`, { token: token || undefined }),
+    enabled: !!id,
+  });
+}
+
+export function useCreateTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { patientId: string; assignedTo?: string; title: string; description?: string; priority?: string; dueDate?: string }) =>
+      api<Task>('/tasks', { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { title?: string; description?: string; priority?: string; dueDate?: string } }) =>
+      api<Task>(`/tasks/${id}`, { method: 'PUT', body: data, token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
+export function useTransitionTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, deferredReason }: { id: string; status: string; deferredReason?: string }) =>
+      api<Task>(`/tasks/${id}/transition`, { method: 'POST', body: { status, deferredReason }, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useAssignTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, assignedTo }: { id: string; assignedTo: string }) =>
+      api<Task>(`/tasks/${id}/assign`, { method: 'POST', body: { assignedTo }, token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
+export function useDeleteTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ message: string }>(`/tasks/${id}`, { method: 'DELETE', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   });
 }

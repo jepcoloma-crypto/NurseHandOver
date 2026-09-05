@@ -13,6 +13,7 @@ import { roomRouter } from './routes/rooms.js';
 import { bedRouter } from './routes/beds.js';
 import { shiftRouter } from './routes/shifts.js';
 import { assignmentRouter } from './routes/assignments.js';
+import { taskRouter } from './routes/tasks.js';
 import { notificationRouter } from './routes/notifications.js';
 import { alertRuleRouter, loadAlertRules } from './routes/alertRules.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -60,6 +61,7 @@ app.use('/api/v1/rooms', roomRouter);
 app.use('/api/v1/beds', bedRouter);
 app.use('/api/v1/shifts', shiftRouter);
 app.use('/api/v1/assignments', assignmentRouter);
+app.use('/api/v1/tasks', taskRouter);
 app.use('/api/v1/notifications', notificationRouter);
 app.use('/api/v1/alert-rules', alertRuleRouter);
 

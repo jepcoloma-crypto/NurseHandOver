@@ -167,7 +167,7 @@ router.get('/:id', authenticate, authorizePatientAccess, async (req: AuthRequest
           take: 5,
         },
         nursingTasks: {
-          where: { status: { not: 'completed' } },
+          where: { status: { not: 'COMPLETED' } },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -642,7 +642,7 @@ router.put('/:patientId/tasks/:taskId', authenticate, authorize('NURSE', 'SUPERV
     const updateData: Record<string, unknown> = {};
     if (status) {
       updateData.status = status;
-      if (status === 'completed') updateData.completedAt = new Date();
+      if (status === 'COMPLETED') updateData.completedAt = new Date();
     }
 
     const updated = await prisma.nursingTask.update({ where: { id: taskId }, data: updateData });

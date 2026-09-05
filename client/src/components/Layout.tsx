@@ -59,6 +59,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <Link
+            to="/tasks"
+            className={`block px-3 py-2 rounded-md text-sm font-medium ${
+              location.pathname.startsWith('/tasks') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Tasks
+          </Link>
+
+          <Link
             to="/notifications"
             className={`block px-3 py-2 rounded-md text-sm font-medium ${
               location.pathname === '/notifications' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'

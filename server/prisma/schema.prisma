@@ -28,6 +28,8 @@ model User {
   notifications    Notification[]
   auditLogs        AuditLog[]
   researchParticipants ResearchParticipant[]
+  assignedTasks    NursingTask[] @relation("AssignedTasks")
+  deferredTasks    NursingTask[] @relation("DeferredTasks")
 
   @@map("users")
 }
@@ -232,22 +234,42 @@ model NursingAssessment {
   @@map("nursing_assessments")
 }
 
-model NursingTask {
-  id          String   @id @default(uuid()) @db.Uuid
-  patientId   String   @map("patient_id") @db.Uuid
-  assignedTo  String?  @map("assigned_to") @db.Uuid
-  title       String   @db.VarChar(255)
-  description String?  @db.Text
-  priority    String   @default("medium") @db.VarChar(20)
-  status      String   @default("pending") @db.VarChar(20)
-  dueDate     DateTime? @map("due_date")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DEFERRED
+  CANCELLED
+}
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+model NursingTask {
+  id             String       @id @default(uuid()) @db.Uuid
+  patientId      String       @map("patient_id") @db.Uuid
+  assignedTo     String?      @map("assigned_to") @db.Uuid
+  deferredBy     String?      @map("deferred_by") @db.Uuid
+  title          String       @db.VarChar(255)
+  description    String?      @db.Text
+  priority       TaskPriority @default(medium)
+  status         TaskStatus   @default(PENDING)
+  dueDate        DateTime?    @map("due_date")
+  completedAt    DateTime?    @map("completed_at")
+  deferredReason String?      @map("deferred_reason") @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  assignee  User?    @relation("AssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
+  deferrer  User?    @relation("DeferredTasks", fields: [deferredBy], references: [id], onDelete: SetNull)
 
   @@index([patientId, status])
+  @@index([assignedTo, status])
   @@map("nursing_tasks")
 }
 
