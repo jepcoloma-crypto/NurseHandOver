@@ -362,3 +362,266 @@ export function useUsers() {
     queryFn: () => api<User[]>('/users', { token: token || undefined }),
   });
 }
+
+export interface Patient {
+  id: string;
+  mrn: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: string;
+  admissionDate: string;
+  wardId: string;
+  bedId?: string;
+  status: string;
+  isActive: boolean;
+  createdAt: string;
+  ward?: { id: string; name: string };
+  bed?: { id: string; number: string };
+}
+
+export interface PatientDetail extends Patient {
+  vitalSigns?: VitalSign[];
+  nursingAssessments?: Assessment[];
+  nursingTasks?: Task[];
+  handovers?: HandoverSummary[];
+}
+
+export interface VitalSign {
+  id: string;
+  patientId: string;
+  recordedBy: string;
+  temperature?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  oxygenSaturation?: number;
+  painScale?: number;
+  notes?: string;
+  recordedAt: string;
+}
+
+export interface Assessment {
+  id: string;
+  patientId: string;
+  assessedBy: string;
+  assessmentType: string;
+  findings: string;
+  painScale?: number;
+  notes?: string;
+  assessedAt: string;
+}
+
+export interface Task {
+  id: string;
+  patientId: string;
+  assignedTo?: string;
+  title: string;
+  description?: string;
+  priority: string;
+  status: string;
+  dueDate?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface HandoverSummary {
+  id: string;
+  status: string;
+  createdAt: string;
+  submittedAt?: string;
+  outgoingNurse?: { firstName: string; lastName: string };
+  incomingNurse?: { firstName: string; lastName: string };
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: Pagination;
+}
+
+export interface TimelineEvent {
+  type: 'VITAL_SIGN' | 'ASSESSMENT' | 'TASK' | 'HANDOVER';
+  date: string;
+  data: VitalSign | Assessment | Task | HandoverSummary;
+}
+
+export interface PatientFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  wardId?: string;
+  status?: string;
+}
+
+export function usePatients(filters?: PatientFilters) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', filters],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.set('page', String(filters.page));
+      if (filters?.limit) params.set('limit', String(filters.limit));
+      if (filters?.search) params.set('search', filters.search);
+      if (filters?.wardId) params.set('wardId', filters.wardId);
+      if (filters?.status) params.set('status', filters.status);
+      const query = params.toString();
+      return api<PaginatedResponse<Patient>>(`/patients${query ? `?${query}` : ''}`, { token: token || undefined });
+    },
+  });
+}
+
+export function usePatient(id: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', id],
+    queryFn: () => api<PatientDetail>(`/patients/${id}`, { token: token || undefined }),
+    enabled: !!id,
+  });
+}
+
+export function usePatientTimeline(id: string, limit?: number) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', id, 'timeline', limit],
+    queryFn: () => {
+      const params = limit ? `?limit=${limit}` : '';
+      return api<TimelineEvent[]>(`/patients/${id}/timeline${params}`, { token: token || undefined });
+    },
+    enabled: !!id,
+  });
+}
+
+export function usePatientVitals(id: string, limit?: number) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', id, 'vitals', limit],
+    queryFn: () => {
+      const params = limit ? `?limit=${limit}` : '';
+      return api<VitalSign[]>(`/patients/${id}/vitals${params}`, { token: token || undefined });
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateVitalSign() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ patientId, ...data }: { patientId: string } & Partial<VitalSign>) =>
+      api<VitalSign>(`/patients/${patientId}/vitals`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'vitals'] });
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'timeline'] });
+    },
+  });
+}
+
+export function usePatientAssessments(id: string, limit?: number) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', id, 'assessments', limit],
+    queryFn: () => {
+      const params = limit ? `?limit=${limit}` : '';
+      return api<Assessment[]>(`/patients/${id}/assessments${params}`, { token: token || undefined });
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateAssessment() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ patientId, ...data }: { patientId: string; assessmentType: string; findings: string; painScale?: number; notes?: string }) =>
+      api<Assessment>(`/patients/${patientId}/assessments`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'assessments'] });
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'timeline'] });
+    },
+  });
+}
+
+export function usePatientTasks(id: string, limit?: number) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['patients', id, 'tasks', limit],
+    queryFn: () => {
+      const params = limit ? `?limit=${limit}` : '';
+      return api<Task[]>(`/patients/${id}/tasks${params}`, { token: token || undefined });
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ patientId, ...data }: { patientId: string; title: string; description?: string; priority?: string; dueDate?: string }) =>
+      api<Task>(`/patients/${patientId}/tasks`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'tasks'] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ patientId, taskId, ...data }: { patientId: string; taskId: string; status?: string }) =>
+      api<Task>(`/patients/${patientId}/tasks/${taskId}`, { method: 'PUT', body: data, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.patientId, 'tasks'] });
+    },
+  });
+}
+
+export function useCreatePatient() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      mrn: string;
+      firstName: string;
+      lastName: string;
+      dateOfBirth: string;
+      gender: string;
+      admissionDate: string;
+      wardId: string;
+      bedId?: string;
+    }) => api<Patient>('/patients', { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
+  });
+}
+
+export function useUpdatePatient() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; firstName?: string; lastName?: string; gender?: string; wardId?: string; bedId?: string | null; status?: string }) =>
+      api<Patient>(`/patients/${id}`, { method: 'PUT', body: data, token: token || undefined }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['patients', variables.id] });
+    },
+  });
+}
+
+export function useDeletePatient() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ message: string }>(`/patients/${id}`, { method: 'DELETE', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
+  });
+}

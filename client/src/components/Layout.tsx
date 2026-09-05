@@ -45,6 +45,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             Dashboard
           </Link>
 
+          <Link
+            to="/patients"
+            className={`block px-3 py-2 rounded-md text-sm font-medium ${
+              location.pathname.startsWith('/patients') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Patients
+          </Link>
+
           {isAdmin && (
             <div className="pt-4">
               <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Administration</p>

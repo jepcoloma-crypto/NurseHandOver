@@ -11,6 +11,8 @@ import { BedsPage } from './pages/admin/BedsPage';
 import { ShiftsPage } from './pages/admin/ShiftsPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { AssignmentsPage } from './pages/supervisor/AssignmentsPage';
+import { PatientsPage } from './pages/PatientsPage';
+import { PatientDetailPage } from './pages/PatientDetailPage';
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute><Layout><PatientsPage /></Layout></ProtectedRoute>} />
+        <Route path="/patients/:id" element={<ProtectedRoute><Layout><PatientDetailPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><DepartmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/wards" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><WardsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/rooms" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><RoomsPage /></Layout></ProtectedRoute>} />
