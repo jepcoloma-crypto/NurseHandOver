@@ -442,6 +442,39 @@ router.post('/:id/transition', authenticate, async (req: AuthRequest, res: Respo
       });
     }
 
+    if (status === 'SUBMITTED' && existing.incomingNurseId) {
+      await prisma.notification.create({
+        data: {
+          userId: existing.incomingNurseId,
+          type: 'HANDOVER_SUBMITTED',
+          title: 'Handover Submitted',
+          message: `${handover.outgoingNurse.firstName} ${handover.outgoingNurse.lastName} has submitted a handover for patient ${handover.patient.firstName} ${handover.patient.lastName}.`,
+        },
+      });
+    }
+
+    if (status === 'RECEIVED' && existing.outgoingNurseId) {
+      await prisma.notification.create({
+        data: {
+          userId: existing.outgoingNurseId,
+          type: 'HANDOVER_RECEIVED',
+          title: 'Handover Received',
+          message: `${handover.incomingNurse?.firstName} ${handover.incomingNurse?.lastName} has received the handover for patient ${handover.patient.firstName} ${handover.patient.lastName}.`,
+        },
+      });
+    }
+
+    if (status === 'ACCEPTED' && existing.outgoingNurseId) {
+      await prisma.notification.create({
+        data: {
+          userId: existing.outgoingNurseId,
+          type: 'HANDOVER_ACCEPTED',
+          title: 'Handover Accepted',
+          message: `${handover.incomingNurse?.firstName} ${handover.incomingNurse?.lastName} has accepted the handover for patient ${handover.patient.firstName} ${handover.patient.lastName}.`,
+        },
+      });
+    }
+
     res.json({ success: true, data: handover });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -451,6 +484,196 @@ router.post('/:id/transition', authenticate, async (req: AuthRequest, res: Respo
       });
       return;
     }
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+  }
+});
+
+// POST /handovers/:id/clarifications - Request clarification
+router.post('/:id/clarifications', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { question } = z.object({ question: z.string().min(1).max(2000) }).parse(req.body);
+
+    const handover = await prisma.handover.findUnique({ where: { id } });
+    if (!handover) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Handover not found' },
+      });
+      return;
+    }
+
+    if (handover.incomingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Only the incoming nurse can request clarification' },
+      });
+      return;
+    }
+
+    if (!['RECEIVED', 'CLARIFICATION_RESPONDED'].includes(handover.status)) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_STATUS', message: 'Can only request clarification when handover is RECEIVED or CLARIFICATION_RESPONDED' },
+      });
+      return;
+    }
+
+    const clarification = await prisma.handoverClarification.create({
+      data: {
+        handoverId: id,
+        requestedBy: req.user?.id ?? '',
+        question,
+        status: 'pending',
+      },
+    });
+
+    await prisma.handover.update({
+      where: { id },
+      data: { status: 'CLARIFICATION_REQUIRED' },
+    });
+
+    await createHandoverEvent(id, 'CLARIFICATION_REQUESTED', req.user?.id ?? '', { question });
+    await createHandoverSnapshot(id, req.user?.id ?? '');
+
+    if (handover.outgoingNurseId) {
+      await prisma.notification.create({
+        data: {
+          userId: handover.outgoingNurseId,
+          type: 'HANDOVER_CLARIFICATION',
+          title: 'Clarification Requested',
+          message: `A clarification has been requested for the handover of patient. Please respond.`,
+        },
+      });
+    }
+
+    res.status(201).json({ success: true, data: clarification });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', details: error.issues },
+      });
+      return;
+    }
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+  }
+});
+
+// PUT /handovers/:id/clarifications/:clarificationId/respond - Respond to clarification
+router.put('/:id/clarifications/:clarificationId/respond', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const clarificationId = Array.isArray(req.params.clarificationId) ? req.params.clarificationId[0] : req.params.clarificationId;
+    const { response } = z.object({ response: z.string().min(1).max(2000) }).parse(req.body);
+
+    const handover = await prisma.handover.findUnique({ where: { id } });
+    if (!handover) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Handover not found' },
+      });
+      return;
+    }
+
+    if (handover.outgoingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Only the outgoing nurse can respond to clarifications' },
+      });
+      return;
+    }
+
+    const clarification = await prisma.handoverClarification.findFirst({
+      where: { id: clarificationId, handoverId: id },
+    });
+    if (!clarification) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Clarification not found' },
+      });
+      return;
+    }
+
+    if (clarification.status === 'answered') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'ALREADY_RESPONDED', message: 'This clarification has already been answered' },
+      });
+      return;
+    }
+
+    const updated = await prisma.handoverClarification.update({
+      where: { id: clarificationId },
+      data: {
+        response,
+        respondedBy: req.user?.id ?? '',
+        status: 'answered',
+      },
+    });
+
+    await prisma.handover.update({
+      where: { id },
+      data: { status: 'CLARIFICATION_RESPONDED' },
+    });
+
+    await createHandoverEvent(id, 'CLARIFICATION_RESPONDED', req.user?.id ?? '', { clarificationId });
+    await createHandoverSnapshot(id, req.user?.id ?? '');
+
+    if (handover.incomingNurseId) {
+      await prisma.notification.create({
+        data: {
+          userId: handover.incomingNurseId,
+          type: 'HANDOVER_CLARIFICATION',
+          title: 'Clarification Responded',
+          message: `A clarification for the handover has been answered. Please review the response.`,
+        },
+      });
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', details: error.issues },
+      });
+      return;
+    }
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+  }
+});
+
+// GET /handovers/:id/clarifications - List clarifications for a handover
+router.get('/:id/clarifications', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    const handover = await prisma.handover.findUnique({ where: { id } });
+    if (!handover) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Handover not found' },
+      });
+      return;
+    }
+
+    const clarifications = await prisma.handoverClarification.findMany({
+      where: { handoverId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ success: true, data: clarifications });
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },

@@ -888,3 +888,37 @@ export function useDeleteHandover() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['handovers'] }),
   });
 }
+
+export function useRequestClarification() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ handoverId, question }: { handoverId: string; question: string }) =>
+      api<HandoverClarification>(`/handovers/${handoverId}/clarifications`, {
+        method: 'POST',
+        body: { question },
+        token: token || undefined,
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['handover', variables.handoverId] });
+      queryClient.invalidateQueries({ queryKey: ['handovers'] });
+    },
+  });
+}
+
+export function useRespondClarification() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ handoverId, clarificationId, response }: { handoverId: string; clarificationId: string; response: string }) =>
+      api<HandoverClarification>(`/handovers/${handoverId}/clarifications/${clarificationId}/respond`, {
+        method: 'PUT',
+        body: { response },
+        token: token || undefined,
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['handover', variables.handoverId] });
+      queryClient.invalidateQueries({ queryKey: ['handovers'] });
+    },
+  });
+}

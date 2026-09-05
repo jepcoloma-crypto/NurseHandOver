@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useHandover, useUpdateHandover, useTransitionHandover, useDeleteHandover } from '../hooks/useApi';
+import { useAuth } from '../contexts/AuthContext';
+import { ClarificationPanel } from '../components/ClarificationPanel';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Draft', color: 'bg-gray-100 text-gray-800' },
@@ -22,6 +24,13 @@ const SBAR_CONFIG: Record<string, { label: string; color: string; description: s
 };
 
 const SBAR_TYPES = ['SITUATION', 'BACKGROUND', 'ASSESSMENT', 'RECOMMENDATION'];
+
+const WORKFLOW_STEPS = [
+  { status: 'SUBMITTED', label: 'Submitted', icon: '1' },
+  { status: 'RECEIVED', label: 'Received', icon: '2' },
+  { status: 'CLARIFICATION_REQUIRED', label: 'Clarification', icon: '3' },
+  { status: 'ACCEPTED', label: 'Accepted', icon: '4' },
+];
 
 function formatDT(d: string) { return new Date(d).toLocaleString(); }
 
@@ -48,9 +57,20 @@ function getCompletenessLabel(p: number): string {
   return 'Empty';
 }
 
+function getWorkflowStepStatus(currentStatus: string, stepStatus: string): 'completed' | 'current' | 'upcoming' {
+  const order = ['SUBMITTED', 'RECEIVED', 'CLARIFICATION_REQUIRED', 'CLARIFICATION_RESPONDED', 'ACCEPTED'];
+  const currentIdx = order.indexOf(currentStatus);
+  const stepIdx = order.indexOf(stepStatus);
+  if (stepStatus === 'ACCEPTED' && currentStatus === 'ACCEPTED') return 'completed';
+  if (stepIdx <= currentIdx) return 'completed';
+  if (stepIdx === currentIdx + 1) return 'current';
+  return 'upcoming';
+}
+
 export function HandoverDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: handover, isLoading } = useHandover(id || '');
   const updateHandover = useUpdateHandover();
   const transitionHandover = useTransitionHandover();
@@ -58,6 +78,7 @@ export function HandoverDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [sections, setSections] = useState<Record<string, string>>({});
+  const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
 
   if (isLoading) return <div className="p-6 text-gray-500">Loading...</div>;
   if (!handover) return <div className="p-6 text-red-500">Handover not found</div>;
@@ -66,6 +87,10 @@ export function HandoverDetailPage() {
   const validTransitions = handover.validTransitions || [];
   const sectionsList = handover.sections || [];
   const completeness = handover.completeness ?? 0;
+
+  const isOutgoingNurse = user?.id === handover.outgoingNurse?.id;
+  const isIncomingNurse = user?.id === handover.incomingNurse?.id;
+  const isAdmin = user?.roles?.some((r) => r === 'ADMINISTRATOR');
 
   const sectionAnalysis = SBAR_TYPES.map((type) => {
     const section = sectionsList.find((s) => s.sectionType === type);
@@ -78,6 +103,10 @@ export function HandoverDetailPage() {
   });
 
   const filledCount = sectionAnalysis.filter((s) => !s.isEmpty).length;
+
+  const canEdit = (isOutgoingNurse || isAdmin) && ['DRAFT', 'READY_FOR_REVIEW'].includes(handover.status);
+  const canClarify = isIncomingNurse && ['RECEIVED', 'CLARIFICATION_RESPONDED'].includes(handover.status);
+  const canRespondClarification = isOutgoingNurse && ['CLARIFICATION_REQUIRED'].includes(handover.status);
 
   const handleStartEdit = () => {
     const s: Record<string, string> = {};
@@ -95,6 +124,11 @@ export function HandoverDetailPage() {
 
   const handleTransition = async (status: string) => {
     await transitionHandover.mutateAsync({ id: id!, status });
+  };
+
+  const handleAccept = async () => {
+    await transitionHandover.mutateAsync({ id: id!, status: 'ACCEPTED' });
+    setShowAcceptConfirm(false);
   };
 
   const handleDelete = async () => {
@@ -144,8 +178,43 @@ export function HandoverDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4">
-          {!editing && validTransitions.length > 0 && handover.status !== 'COMPLETED' && handover.status !== 'CANCELLED' && (
+        {['SUBMITTED', 'RECEIVED', 'CLARIFICATION_REQUIRED', 'CLARIFICATION_RESPONDED', 'ACCEPTED'].includes(handover.status) && (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Receiving Workflow</h3>
+            <div className="flex items-center gap-0">
+              {WORKFLOW_STEPS.map((step, i) => {
+                const stepSt = getWorkflowStepStatus(handover.status, step.status);
+                const isLast = i === WORKFLOW_STEPS.length - 1;
+                return (
+                  <div key={step.status} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                        stepSt === 'completed' ? 'bg-green-500 text-white' :
+                        stepSt === 'current' ? 'bg-primary-600 text-white ring-2 ring-primary-200' :
+                        'bg-gray-200 text-gray-500'
+                      }`}>
+                        {stepSt === 'completed' ? '✓' : step.icon}
+                      </div>
+                      <span className={`text-xs mt-1 ${
+                        stepSt === 'completed' ? 'text-green-600' :
+                        stepSt === 'current' ? 'text-primary-600 font-medium' :
+                        'text-gray-400'
+                      }`}>{step.label}</span>
+                    </div>
+                    {!isLast && (
+                      <div className={`flex-1 h-0.5 mx-2 ${
+                        stepSt === 'completed' ? 'bg-green-500' : 'bg-gray-200'
+                      }`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2 mt-4">
+          {canEdit && (
             <button onClick={handleStartEdit} className="bg-primary-600 text-white px-4 py-2 rounded-md text-sm hover:bg-primary-700">
               Edit Sections
             </button>
@@ -165,14 +234,27 @@ export function HandoverDetailPage() {
           {validTransitions.includes('RECEIVED') && (
             <button onClick={() => handleTransition('RECEIVED')}
               className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700">
-              Mark Received
+              Mark as Received
             </button>
           )}
-          {validTransitions.includes('ACCEPTED') && (
-            <button onClick={() => handleTransition('ACCEPTED')}
+          {validTransitions.includes('ACCEPTED') && !showAcceptConfirm && (
+            <button onClick={() => setShowAcceptConfirm(true)}
               className="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
-              Accept
+              Accept Handover
             </button>
+          )}
+          {showAcceptConfirm && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-4">
+              <span className="text-sm text-green-800 font-medium">Confirm acceptance?</span>
+              <button onClick={handleAccept} disabled={transitionHandover.isPending}
+                className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 disabled:opacity-50">
+                {transitionHandover.isPending ? 'Accepting...' : 'Yes, Accept'}
+              </button>
+              <button onClick={() => setShowAcceptConfirm(false)}
+                className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs hover:bg-gray-300">
+                Cancel
+              </button>
+            </div>
           )}
           {validTransitions.includes('DRAFT') && (
             <button onClick={() => handleTransition('DRAFT')}
@@ -263,6 +345,15 @@ export function HandoverDetailPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="mt-6">
+        <ClarificationPanel
+          handoverId={id!}
+          clarifications={handover.clarifications || []}
+          canRequest={canClarify}
+          canRespond={canRespondClarification}
+        />
       </div>
 
       {handover.events && handover.events.length > 0 && (
