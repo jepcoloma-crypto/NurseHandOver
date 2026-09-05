@@ -268,6 +268,14 @@ export function HandoverDetailPage() {
               Delete
             </button>
           )}
+          <Link to={`/handovers/${id}/history`}
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300 inline-flex items-center">
+            Version History
+          </Link>
+          <Link to={`/handovers/${id}/timeline`}
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300 inline-flex items-center">
+            Timeline
+          </Link>
         </div>
       </div>
 

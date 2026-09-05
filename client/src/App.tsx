@@ -25,6 +25,9 @@ import { HandoverListPage } from './pages/HandoverListPage';
 import { CreateHandoverPage } from './pages/CreateHandoverPage';
 import { HandoverDetailPage } from './pages/HandoverDetailPage';
 import { CompletenessDashboardPage } from './pages/CompletenessDashboardPage';
+import { HandoverHistoryPage } from './pages/HandoverHistoryPage';
+import { HandoverTimelinePage } from './pages/HandoverTimelinePage';
+import { AuditLogPage } from './pages/AuditLogPage';
 
 function App() {
   return (
@@ -44,6 +47,8 @@ function App() {
         <Route path="/handovers/new" element={<ProtectedRoute><Layout><CreateHandoverPage /></Layout></ProtectedRoute>} />
         <Route path="/handovers/completeness" element={<ProtectedRoute><Layout><CompletenessDashboardPage /></Layout></ProtectedRoute>} />
         <Route path="/handovers/:id" element={<ProtectedRoute><Layout><HandoverDetailPage /></Layout></ProtectedRoute>} />
+        <Route path="/handovers/:id/history" element={<ProtectedRoute><Layout><HandoverHistoryPage /></Layout></ProtectedRoute>} />
+        <Route path="/handovers/:id/timeline" element={<ProtectedRoute><Layout><HandoverTimelinePage /></Layout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Layout><NotificationsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><DepartmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/wards" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><WardsPage /></Layout></ProtectedRoute>} />
@@ -52,6 +57,7 @@ function App() {
         <Route path="/admin/shifts" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><ShiftsPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><UsersPage /></Layout></ProtectedRoute>} />
         <Route path="/admin/alert-rules" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><AlertRulesPage /></Layout></ProtectedRoute>} />
+        <Route path="/admin/audit-logs" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><AuditLogPage /></Layout></ProtectedRoute>} />
         <Route path="/supervisor/assignments" element={<ProtectedRoute roles={['SUPERVISOR']}><Layout><AssignmentsPage /></Layout></ProtectedRoute>} />
       </Routes>
     </AuthProvider>

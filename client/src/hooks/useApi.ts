@@ -889,6 +889,34 @@ export function useDeleteHandover() {
   });
 }
 
+export interface AuditLog {
+  id: string;
+  userId?: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  details?: Record<string, unknown>;
+  ipAddress?: string;
+  createdAt: string;
+  user?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export function useAuditLogs(filters?: { entity?: string; entityId?: string; userId?: string; action?: string; page?: number; limit?: number }) {
+  const { token } = useAuth();
+  const params = new URLSearchParams();
+  if (filters?.entity) params.set('entity', filters.entity);
+  if (filters?.entityId) params.set('entityId', filters.entityId);
+  if (filters?.userId) params.set('userId', filters.userId);
+  if (filters?.action) params.set('action', filters.action);
+  if (filters?.page) params.set('page', String(filters.page));
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['auditLogs', filters],
+    queryFn: () => api<{ data: AuditLog[]; pagination: Pagination }>(`/audit-logs${qs ? `?${qs}` : ''}`, { token: token || undefined }),
+  });
+}
+
 export function useRequestClarification() {
   const { token } = useAuth();
   const queryClient = useQueryClient();

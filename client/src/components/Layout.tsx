@@ -10,6 +10,7 @@ const adminLinks = [
   { to: '/admin/shifts', label: 'Shifts' },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/alert-rules', label: 'Alert Rules' },
+  { to: '/admin/audit-logs', label: 'Audit Log' },
 ];
 
 const supervisorLinks = [

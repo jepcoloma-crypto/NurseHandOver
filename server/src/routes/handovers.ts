@@ -177,6 +177,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const validTransitions = VALID_TRANSITIONS[handover.status] || [];
     const completeness = computeCompleteness(handover.sections as SectionData[]);
 
+    await createHandoverEvent(id, 'VIEWED', req.user?.id ?? '');
+
     res.json({
       success: true,
       data: {
@@ -431,6 +433,10 @@ router.post('/:id/transition', authenticate, async (req: AuthRequest, res: Respo
     await createHandoverEvent(id, `TRANSITIONED_TO_${status}`, req.user?.id ?? '', { from: existing.status, to: status });
     await createHandoverSnapshot(id, req.user?.id ?? '');
 
+    await prisma.auditLog.create({
+      data: { userId: req.user?.id, action: `TRANSITION_${status}`, entity: 'HANDOVER', entityId: id, details: { from: existing.status, to: status } },
+    });
+
     if (status === 'READY_FOR_REVIEW' && existing.incomingNurseId) {
       await prisma.notification.create({
         data: {
@@ -539,6 +545,10 @@ router.post('/:id/clarifications', authenticate, async (req: AuthRequest, res: R
     await createHandoverEvent(id, 'CLARIFICATION_REQUESTED', req.user?.id ?? '', { question });
     await createHandoverSnapshot(id, req.user?.id ?? '');
 
+    await prisma.auditLog.create({
+      data: { userId: req.user?.id, action: 'CLARIFICATION_REQUESTED', entity: 'HANDOVER', entityId: id },
+    });
+
     if (handover.outgoingNurseId) {
       await prisma.notification.create({
         data: {
@@ -625,6 +635,10 @@ router.put('/:id/clarifications/:clarificationId/respond', authenticate, async (
 
     await createHandoverEvent(id, 'CLARIFICATION_RESPONDED', req.user?.id ?? '', { clarificationId });
     await createHandoverSnapshot(id, req.user?.id ?? '');
+
+    await prisma.auditLog.create({
+      data: { userId: req.user?.id, action: 'CLARIFICATION_RESPONDED', entity: 'HANDOVER', entityId: id },
+    });
 
     if (handover.incomingNurseId) {
       await prisma.notification.create({

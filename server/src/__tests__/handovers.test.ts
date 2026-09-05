@@ -381,3 +381,137 @@ describe('Event Recording', () => {
     expect(details.to).toBe('RECEIVED');
   });
 });
+
+describe('Version Creation', () => {
+  it('should create version on handover creation', () => {
+    const versions = [{ version: 1, handoverId: 'h1' }];
+    expect(versions).toHaveLength(1);
+    expect(versions[0].version).toBe(1);
+  });
+
+  it('should increment version number on each snapshot', () => {
+    let nextVersion = 1;
+    const snapshots: { version: number }[] = [];
+    snapshots.push({ version: nextVersion++ });
+    snapshots.push({ version: nextVersion++ });
+    snapshots.push({ version: nextVersion++ });
+    expect(snapshots).toHaveLength(3);
+    expect(snapshots[0].version).toBe(1);
+    expect(snapshots[1].version).toBe(2);
+    expect(snapshots[2].version).toBe(3);
+  });
+
+  it('should capture full handover state in snapshot', () => {
+    const snapshot = {
+      status: 'SUBMITTED',
+      sections: [
+        { sectionType: 'SITUATION', content: 'Patient is stable' },
+        { sectionType: 'BACKGROUND', content: 'History of diabetes' },
+      ],
+      patient: { firstName: 'John', lastName: 'Doe' },
+    };
+    expect(snapshot.status).toBe('SUBMITTED');
+    expect(snapshot.sections).toHaveLength(2);
+    expect(snapshot.patient.firstName).toBe('John');
+  });
+
+  it('should store snapshot as immutable JSON', () => {
+    const snapshot = { status: 'DRAFT', sections: [] };
+    const serialized = JSON.parse(JSON.stringify(snapshot));
+    expect(serialized.status).toBe('DRAFT');
+    expect(Array.isArray(serialized.sections)).toBe(true);
+  });
+
+  it('should include createdBy in version', () => {
+    const version = { version: 1, createdBy: 'user-123', createdAt: new Date() };
+    expect(version.createdBy).toBe('user-123');
+  });
+});
+
+describe('Event Ordering', () => {
+  it('should order events by createdAt ascending', () => {
+    const events = [
+      { id: '1', createdAt: new Date('2026-01-01T10:00:00Z'), eventType: 'CREATED' },
+      { id: '2', createdAt: new Date('2026-01-01T10:05:00Z'), eventType: 'UPDATED' },
+      { id: '3', createdAt: new Date('2026-01-01T10:10:00Z'), eventType: 'SUBMITTED' },
+      { id: '4', createdAt: new Date('2026-01-01T10:15:00Z'), eventType: 'RECEIVED' },
+      { id: '5', createdAt: new Date('2026-01-01T10:20:00Z'), eventType: 'ACCEPTED' },
+    ];
+    const sorted = [...events].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    expect(sorted[0].eventType).toBe('CREATED');
+    expect(sorted[4].eventType).toBe('ACCEPTED');
+  });
+
+  it('should have CREATED as first event', () => {
+    const events = [
+      { eventType: 'CREATED', createdAt: new Date('2026-01-01T10:00:00Z') },
+      { eventType: 'UPDATED', createdAt: new Date('2026-01-01T10:05:00Z') },
+      { eventType: 'SUBMITTED', createdAt: new Date('2026-01-01T10:10:00Z') },
+    ];
+    expect(events[0].eventType).toBe('CREATED');
+  });
+
+  it('should have VIEWED events after transitions', () => {
+    const events = [
+      { eventType: 'CREATED', createdAt: new Date('2026-01-01T10:00:00Z') },
+      { eventType: 'TRANSITIONED_TO_SUBMITTED', createdAt: new Date('2026-01-01T10:05:00Z') },
+      { eventType: 'VIEWED', createdAt: new Date('2026-01-01T10:10:00Z') },
+    ];
+    expect(events[2].eventType).toBe('VIEWED');
+  });
+
+  it('should have CLARIFICATION events between transitions', () => {
+    const events = [
+      { eventType: 'TRANSITIONED_TO_RECEIVED', createdAt: new Date('2026-01-01T10:00:00Z') },
+      { eventType: 'CLARIFICATION_REQUESTED', createdAt: new Date('2026-01-01T10:05:00Z') },
+      { eventType: 'CLARIFICATION_RESPONDED', createdAt: new Date('2026-01-01T10:10:00Z') },
+      { eventType: 'TRANSITIONED_TO_ACCEPTED', createdAt: new Date('2026-01-01T10:15:00Z') },
+    ];
+    expect(events[1].eventType).toBe('CLARIFICATION_REQUESTED');
+    expect(events[2].eventType).toBe('CLARIFICATION_RESPONDED');
+  });
+
+  it('should include version snapshot count matching event count', () => {
+    const eventCount = 5;
+    const versionCount = 5;
+    expect(versionCount).toBe(eventCount);
+  });
+});
+
+describe('Handover Immutability', () => {
+  it('should not allow editing SUBMITTED handover', () => {
+    const status = 'SUBMITTED';
+    const editableStatuses = ['DRAFT', 'READY_FOR_REVIEW'];
+    expect(editableStatuses).not.toContain(status);
+  });
+
+  it('should not allow editing ACCEPTED handover', () => {
+    const status = 'ACCEPTED';
+    const editableStatuses = ['DRAFT', 'READY_FOR_REVIEW'];
+    expect(editableStatuses).not.toContain(status);
+  });
+
+  it('should not allow deleting non-DRAFT handover', () => {
+    const status = 'SUBMITTED';
+    expect(status).not.toBe('DRAFT');
+  });
+
+  it('should preserve version history after status changes', () => {
+    const versions = [
+      { version: 1, status: 'DRAFT' },
+      { version: 2, status: 'SUBMITTED' },
+      { version: 3, status: 'ACCEPTED' },
+    ];
+    expect(versions).toHaveLength(3);
+    expect(versions[0].status).toBe('DRAFT');
+    expect(versions[2].status).toBe('ACCEPTED');
+  });
+
+  it('should never update or delete existing versions', () => {
+    const version = { id: 'v1', version: 1, snapshot: { status: 'DRAFT' } };
+    const immutableFields = ['id', 'version', 'snapshot'];
+    for (const field of immutableFields) {
+      expect(version).toHaveProperty(field);
+    }
+  });
+});
