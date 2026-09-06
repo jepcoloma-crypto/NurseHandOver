@@ -115,6 +115,17 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const userRoles = req.user?.roles || [];
+    if (!userRoles.includes('ADMINISTRATOR') && !userRoles.includes('SUPERVISOR')) {
+      if (task.assignedTo !== req.user?.id) {
+        res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You do not have access to this task' },
+        });
+        return;
+      }
+    }
+
     const validTransitions = VALID_TRANSITIONS[task.status] || [];
 
     res.json({ success: true, data: { ...task, validTransitions } });

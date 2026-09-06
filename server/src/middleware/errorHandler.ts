@@ -28,14 +28,14 @@ export function errorHandler(
 }
 
 export function notFoundHandler(
-  req: Request,
+  _req: Request,
   res: Response
 ): void {
   res.status(404).json({
     success: false,
     error: {
       code: 'NOT_FOUND',
-      message: `Route ${req.method} ${req.path} not found`,
+      message: 'The requested resource was not found',
     },
   });
 }

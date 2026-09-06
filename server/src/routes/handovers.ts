@@ -100,6 +100,14 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (status) where.status = status;
     if (patientId) where.patientId = patientId;
 
+    const userRoles = req.user?.roles || [];
+    if (!userRoles.includes('ADMINISTRATOR') && !userRoles.includes('SUPERVISOR')) {
+      where.OR = [
+        { outgoingNurseId: req.user?.id },
+        { incomingNurseId: req.user?.id },
+      ];
+    }
+
     const handovers = await prisma.handover.findMany({
       where,
       include: {
@@ -152,6 +160,17 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         error: { code: 'NOT_FOUND', message: 'Handover not found' },
       });
       return;
+    }
+
+    const userRoles = req.user?.roles || [];
+    if (!userRoles.includes('ADMINISTRATOR') && !userRoles.includes('SUPERVISOR')) {
+      if (handover.outgoingNurseId !== req.user?.id && handover.incomingNurseId !== req.user?.id) {
+        res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You do not have access to this handover' },
+        });
+        return;
+      }
     }
 
     const versionsWithUsers = await Promise.all(
@@ -320,10 +339,10 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (existing.outgoingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+    if (existing.outgoingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR') && !req.user?.roles.includes('SUPERVISOR')) {
       res.status(403).json({
         success: false,
-        error: { code: 'FORBIDDEN', message: 'Only the outgoing nurse can edit this handover' },
+        error: { code: 'FORBIDDEN', message: 'Only the outgoing nurse or a supervisor can edit this handover' },
       });
       return;
     }
@@ -402,7 +421,7 @@ router.post('/:id/transition', authenticate, async (req: AuthRequest, res: Respo
       return;
     }
 
-    if (existing.outgoingNurseId !== req.user?.id && existing.incomingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+    if (existing.outgoingNurseId !== req.user?.id && existing.incomingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR') && !req.user?.roles.includes('SUPERVISOR')) {
       res.status(403).json({
         success: false,
         error: { code: 'FORBIDDEN', message: 'Not authorized to transition this handover' },
@@ -527,10 +546,10 @@ router.post('/:id/clarifications', authenticate, async (req: AuthRequest, res: R
       return;
     }
 
-    if (handover.incomingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+    if (handover.incomingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR') && !req.user?.roles.includes('SUPERVISOR')) {
       res.status(403).json({
         success: false,
-        error: { code: 'FORBIDDEN', message: 'Only the incoming nurse can request clarification' },
+        error: { code: 'FORBIDDEN', message: 'Only the incoming nurse or a supervisor can request clarification' },
       });
       return;
     }
@@ -607,10 +626,10 @@ router.put('/:id/clarifications/:clarificationId/respond', authenticate, async (
       return;
     }
 
-    if (handover.outgoingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR')) {
+    if (handover.outgoingNurseId !== req.user?.id && !req.user?.roles.includes('ADMINISTRATOR') && !req.user?.roles.includes('SUPERVISOR')) {
       res.status(403).json({
         success: false,
-        error: { code: 'FORBIDDEN', message: 'Only the outgoing nurse can respond to clarifications' },
+        error: { code: 'FORBIDDEN', message: 'Only the outgoing nurse or a supervisor can respond to clarifications' },
       });
       return;
     }
