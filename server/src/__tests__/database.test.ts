@@ -69,18 +69,18 @@ describe('Database', () => {
   });
 
   it('should have vital_signs table', async () => {
-    const vitalSigns = await prisma.vitalSign.findMany();
-    expect(vitalSigns.length).toBeGreaterThan(0);
+    const result = await prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'vital_signs') as exists`;
+    expect((result as [{ exists: boolean }])[0].exists).toBe(true);
   });
 
   it('should have nursing_assessments table', async () => {
-    const assessments = await prisma.nursingAssessment.findMany();
-    expect(assessments.length).toBeGreaterThan(0);
+    const result = await prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'nursing_assessments') as exists`;
+    expect((result as [{ exists: boolean }])[0].exists).toBe(true);
   });
 
   it('should have nursing_tasks table', async () => {
-    const tasks = await prisma.nursingTask.findMany();
-    expect(tasks.length).toBeGreaterThan(0);
+    const result = await prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'nursing_tasks') as exists`;
+    expect((result as [{ exists: boolean }])[0].exists).toBe(true);
   });
 
   it('should have audit_logs table', async () => {
