@@ -1003,3 +1003,44 @@ export function useSupervisorDashboard() {
     queryFn: () => api<SupervisorDashboardData>('/supervisor/dashboard', { token: token || undefined }),
   });
 }
+
+export interface AnalyticsData {
+  filters: { startDate: string | null; endDate: string | null; wardId: string | null };
+  availableWards: { id: string; name: string; department: string }[];
+  summary: {
+    totalHandovers: number;
+    completedHandovers: number;
+    pendingHandovers: number;
+    submittedHandovers: number;
+    avgCompleteness: number;
+    avgDurationMinutes: number;
+    clarificationRate: number;
+    totalClarifications: number;
+    respondedClarifications: number;
+    totalTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    taskCompletionRate: number;
+    overdueTaskRate: number;
+  };
+  handoversByStatus: Record<string, number>;
+  tasksByStatus: Record<string, number>;
+  handoversByShift: Record<string, { total: number; completed: number; pending: number; incomplete: number }>;
+  handoversByDay: Record<string, number>;
+  tasksByDay: Record<string, { created: number; completed: number; overdue: number }>;
+  completenessDistribution: { empty: number; started: number; partial: number; complete: number };
+  shiftReport: { shiftId: string; shiftName: string; totalHandovers: number; completedHandovers: number; avgCompleteness: number }[];
+}
+
+export function useAnalytics(filters?: { startDate?: string; endDate?: string; wardId?: string }) {
+  const { token } = useAuth();
+  const params = new URLSearchParams();
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  if (filters?.wardId) params.set('wardId', filters.wardId);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['analytics', filters],
+    queryFn: () => api<AnalyticsData>(`/analytics${qs ? `?${qs}` : ''}`, { token: token || undefined }),
+  });
+}

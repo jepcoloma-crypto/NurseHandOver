@@ -29,6 +29,7 @@ import { HandoverHistoryPage } from './pages/HandoverHistoryPage';
 import { HandoverTimelinePage } from './pages/HandoverTimelinePage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SupervisorDashboardPage } from './pages/SupervisorDashboardPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
         <Route path="/admin/audit-logs" element={<ProtectedRoute roles={['ADMINISTRATOR']}><Layout><AuditLogPage /></Layout></ProtectedRoute>} />
         <Route path="/supervisor/assignments" element={<ProtectedRoute roles={['SUPERVISOR']}><Layout><AssignmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/supervisor/dashboard" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><SupervisorDashboardPage /></Layout></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><AnalyticsPage /></Layout></ProtectedRoute>} />
       </Routes>
     </AuthProvider>
   );
