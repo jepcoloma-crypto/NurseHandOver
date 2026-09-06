@@ -405,6 +405,19 @@ router.post('/:id/assign', authenticate, authorize('SUPERVISOR', 'ADMINISTRATOR'
   }
 });
 
+// POST /tasks/check-due - Trigger check for due/overdue tasks
+router.post('/check-due', authenticate, async (_req: AuthRequest, res: Response) => {
+  try {
+    const result = await checkDueAndOverdueTasks();
+    res.json({ success: true, data: result });
+  } catch (_error) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+  }
+});
+
 // DELETE /tasks/:id
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -443,3 +456,75 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 export { router as taskRouter };
+
+// POST /tasks/check-due - Check for due and overdue tasks, create notifications
+async function checkDueAndOverdueTasks(): Promise<{ dueCount: number; overdueCount: number }> {
+  const now = new Date();
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+  const dueTasks = await prisma.nursingTask.findMany({
+    where: {
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+      dueDate: { gte: now, lte: oneHourFromNow },
+      assignedTo: { not: null },
+    },
+    include: { patient: { select: { firstName: true, lastName: true } } },
+  });
+
+  let dueCount = 0;
+  for (const task of dueTasks) {
+    const existing = await prisma.notification.findFirst({
+      where: {
+        userId: task.assignedTo!,
+        type: 'TASK_DUE',
+        message: { contains: task.id },
+      },
+    });
+    if (!existing) {
+      await prisma.notification.create({
+        data: {
+          userId: task.assignedTo!,
+          type: 'TASK_DUE',
+          title: 'Task Due Soon',
+          message: `Task "${task.title}" for patient ${task.patient.firstName} ${task.patient.lastName} is due within the next hour.`,
+        },
+      });
+      dueCount++;
+    }
+  }
+
+  const overdueTasks = await prisma.nursingTask.findMany({
+    where: {
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+      dueDate: { lt: now },
+      assignedTo: { not: null },
+    },
+    include: { patient: { select: { firstName: true, lastName: true } } },
+  });
+
+  let overdueCount = 0;
+  for (const task of overdueTasks) {
+    const existing = await prisma.notification.findFirst({
+      where: {
+        userId: task.assignedTo!,
+        type: 'TASK_OVERDUE',
+        message: { contains: task.id },
+      },
+    });
+    if (!existing) {
+      await prisma.notification.create({
+        data: {
+          userId: task.assignedTo!,
+          type: 'TASK_OVERDUE',
+          title: 'Task Overdue',
+          message: `Task "${task.title}" for patient ${task.patient.firstName} ${task.patient.lastName} is overdue.`,
+        },
+      });
+      overdueCount++;
+    }
+  }
+
+  return { dueCount, overdueCount };
+}
+
+export { checkDueAndOverdueTasks };

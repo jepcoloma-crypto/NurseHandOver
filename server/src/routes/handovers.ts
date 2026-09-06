@@ -249,6 +249,21 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     await createHandoverEvent(handover.id, 'CREATED', req.user?.id ?? '');
     await createHandoverSnapshot(handover.id, req.user?.id ?? '');
 
+    if (body.incomingNurseId && body.incomingNurseId !== req.user?.id) {
+      const creator = await prisma.user.findUnique({
+        where: { id: req.user?.id ?? '' },
+        select: { firstName: true, lastName: true },
+      });
+      await prisma.notification.create({
+        data: {
+          userId: body.incomingNurseId,
+          type: 'NEW_HANDOVER',
+          title: 'New Handover',
+          message: `A new handover has been created for patient ${patient.firstName} ${patient.lastName}. Outgoing nurse: ${creator?.firstName ?? ''} ${creator?.lastName ?? ''}.`,
+        },
+      });
+    }
+
     const created = await prisma.handover.findUnique({
       where: { id: handover.id },
       include: {
