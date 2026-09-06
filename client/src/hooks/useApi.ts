@@ -950,3 +950,56 @@ export function useRespondClarification() {
     },
   });
 }
+
+export interface SupervisorDashboardData {
+  assignedWards: { id: string; name: string; department: string }[];
+  stats: {
+    totalPatients: number;
+    activeNurses: number;
+    completedHandovers: number;
+    pendingHandovers: number;
+    clarifications: number;
+    incompleteHandovers: number;
+    pendingTasks: number;
+    overdueTasks: number;
+  };
+  wardBreakdown: {
+    wardId: string;
+    wardName: string;
+    departmentName: string;
+    patientCount: number;
+    activeNurseCount: number;
+    completedHandovers: number;
+    pendingHandovers: number;
+    clarifications: number;
+    incompleteHandovers: number;
+    pendingTasks: number;
+    overdueTasks: number;
+  }[];
+  recentHandovers: {
+    id: string;
+    patient: { id: string; firstName: string; lastName: string; wardId: string } | null;
+    outgoingNurse: { id: string; firstName: string; lastName: string } | null;
+    incomingNurse: { id: string; firstName: string; lastName: string } | null;
+    status: string;
+    completeness: number | null;
+    createdAt: string;
+  }[];
+  recentTasks: {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    dueDate: string | null;
+    patient: { id: string; firstName: string; lastName: string; wardId: string } | null;
+    assignedTo: { id: string; firstName: string; lastName: string } | null;
+  }[];
+}
+
+export function useSupervisorDashboard() {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['supervisorDashboard'],
+    queryFn: () => api<SupervisorDashboardData>('/supervisor/dashboard', { token: token || undefined }),
+  });
+}

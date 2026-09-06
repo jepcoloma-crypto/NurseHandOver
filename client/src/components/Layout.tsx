@@ -14,6 +14,7 @@ const adminLinks = [
 ];
 
 const supervisorLinks = [
+  { to: '/supervisor/dashboard', label: 'Supervisor Dashboard' },
   { to: '/supervisor/assignments', label: 'Nurse Assignments' },
 ];
 
