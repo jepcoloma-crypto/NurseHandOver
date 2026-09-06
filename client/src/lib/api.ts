@@ -47,5 +47,11 @@ export async function api<T>(endpoint: string, options: ApiOptions = {}): Promis
     );
   }
 
+  // If response has extra fields beyond just 'data' (pagination, unreadCount, stats, etc.),
+  // return the full response so callers can access all fields
+  const extraKeys = Object.keys(data).filter(k => k !== 'success' && k !== 'data');
+  if (extraKeys.length > 0) {
+    return { data: data.data, ...Object.fromEntries(extraKeys.map(k => [k, data[k]])) } as T;
+  }
   return data.data as T;
 }
