@@ -39,9 +39,9 @@ describe('Analytics API', () => {
     });
 
     it('should allow admin to see all wards when no filter', () => {
-      const allowedWardIds = null;
       const allWards = ['ward-1', 'ward-2', 'ward-3'];
-      const visible = allowedWardIds === null ? allWards : allWards.filter((w) => allowedWardIds.includes(w));
+      const showAll = true;
+      const visible = showAll ? allWards : allWards.filter(() => false);
       expect(visible).toHaveLength(3);
     });
   });
@@ -60,7 +60,6 @@ describe('Analytics API', () => {
     });
 
     it('should calculate average handover duration in minutes', () => {
-      const now = Date.now();
       const durations = [
         30 * 60 * 1000,
         45 * 60 * 1000,

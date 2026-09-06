@@ -20,6 +20,7 @@ import { alertRuleRouter, loadAlertRules } from './routes/alertRules.js';
 import { auditLogRouter } from './routes/auditLogs.js';
 import { supervisorDashboardRouter } from './routes/supervisorDashboard.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { researchRouter } from './routes/research.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -72,6 +73,7 @@ app.use('/api/v1/alert-rules', alertRuleRouter);
 app.use('/api/v1/audit-logs', auditLogRouter);
 app.use('/api/v1/supervisor/dashboard', supervisorDashboardRouter);
 app.use('/api/v1/analytics', analyticsRouter);
+app.use('/api/v1/research', researchRouter);
 
 app.use(notFoundHandler);
 

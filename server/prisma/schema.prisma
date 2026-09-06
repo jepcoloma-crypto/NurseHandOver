@@ -448,6 +448,8 @@ model ResearchParticipant {
   id          String   @id @default(uuid()) @db.Uuid
   studyId     String   @map("study_id") @db.Uuid
   userId      String   @map("user_id") @db.Uuid
+  studyCode   String   @map("study_code") @db.VarChar(50)
+  role        String   @db.VarChar(20)
   enrolledAt  DateTime @default(now()) @map("enrolled_at")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -458,6 +460,7 @@ model ResearchParticipant {
   surveyResponses SurveyResponse[]
 
   @@unique([studyId, userId])
+  @@unique([studyId, studyCode])
   @@map("research_participants")
 }
 
@@ -512,14 +515,16 @@ model SurveyResponse {
 model ResearchMetric {
   id          String   @id @default(uuid()) @db.Uuid
   studyId     String   @map("study_id") @db.Uuid
+  participantId String? @map("participant_id") @db.Uuid
   metricName  String   @map("metric_name") @db.VarChar(100)
   metricValue Json     @db.JsonB
-  period      String?  @db.VarChar(50)
+  period      String   @db.VarChar(20)
+  source      String?  @db.VarChar(50)
   recordedAt  DateTime @default(now()) @map("recorded_at")
   createdAt   DateTime @default(now()) @map("created_at")
 
   study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
 
-  @@index([studyId, metricName])
+  @@index([studyId, metricName, period])
   @@map("research_metrics")
 }

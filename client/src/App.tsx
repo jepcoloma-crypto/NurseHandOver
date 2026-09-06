@@ -30,6 +30,8 @@ import { HandoverTimelinePage } from './pages/HandoverTimelinePage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SupervisorDashboardPage } from './pages/SupervisorDashboardPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ResearchStudyListPage } from './pages/ResearchStudyListPage';
+import { ResearchStudyDetailPage } from './pages/ResearchStudyDetailPage';
 
 function App() {
   return (
@@ -63,6 +65,8 @@ function App() {
         <Route path="/supervisor/assignments" element={<ProtectedRoute roles={['SUPERVISOR']}><Layout><AssignmentsPage /></Layout></ProtectedRoute>} />
         <Route path="/supervisor/dashboard" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><SupervisorDashboardPage /></Layout></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><AnalyticsPage /></Layout></ProtectedRoute>} />
+        <Route path="/research" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><ResearchStudyListPage /></Layout></ProtectedRoute>} />
+        <Route path="/research/:id" element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRATOR']}><Layout><ResearchStudyDetailPage /></Layout></ProtectedRoute>} />
       </Routes>
     </AuthProvider>
   );

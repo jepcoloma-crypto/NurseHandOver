@@ -17,6 +17,7 @@ const supervisorLinks = [
   { to: '/supervisor/dashboard', label: 'Supervisor Dashboard' },
   { to: '/supervisor/assignments', label: 'Nurse Assignments' },
   { to: '/analytics', label: 'Analytics & Reports' },
+  { to: '/research', label: 'Research Studies' },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

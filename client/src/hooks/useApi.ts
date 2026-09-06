@@ -1044,3 +1044,165 @@ export function useAnalytics(filters?: { startDate?: string; endDate?: string; w
     queryFn: () => api<AnalyticsData>(`/analytics${qs ? `?${qs}` : ''}`, { token: token || undefined }),
   });
 }
+
+export interface ResearchStudy {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  _count: { participants: number; surveys: number; metrics: number };
+}
+
+export interface ResearchParticipant {
+  id: string;
+  studyId: string;
+  userId: string;
+  studyCode: string;
+  role: string;
+  enrolledAt: string;
+  isActive: boolean;
+  user: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface ResearchSurvey {
+  id: string;
+  studyId: string;
+  title: string;
+  description?: string;
+  isActive: boolean;
+  _count: { questions: number; responses: number };
+}
+
+export interface SurveyQuestion {
+  id: string;
+  surveyId: string;
+  question: string;
+  questionType: string;
+  options?: unknown;
+  isRequired: boolean;
+  orderIndex: number;
+}
+
+export interface ResearchMetric {
+  id: string;
+  studyId: string;
+  participantId?: string;
+  metricName: string;
+  metricValue: unknown;
+  period: string;
+  source?: string;
+  recordedAt: string;
+}
+
+export function useResearchStudies() {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['researchStudies'],
+    queryFn: () => api<ResearchStudy[]>('/research/studies', { token: token || undefined }),
+  });
+}
+
+export function useResearchStudy(id: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['researchStudy', id],
+    queryFn: () => api<ResearchStudy & { participants: ResearchParticipant[]; surveys: ResearchSurvey[] }>(`/research/studies/${id}`, { token: token || undefined }),
+    enabled: !!id,
+  });
+}
+
+export function useCreateResearchStudy() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; description?: string; startDate?: string; endDate?: string }) =>
+      api<ResearchStudy>('/research/studies', { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['researchStudies'] }),
+  });
+}
+
+export function useUpdateResearchStudy() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { title?: string; description?: string; status?: string; startDate?: string; endDate?: string } }) =>
+      api<ResearchStudy>(`/research/studies/${id}`, { method: 'PUT', body: data, token: token || undefined }),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: ['researchStudies'] });
+      queryClient.invalidateQueries({ queryKey: ['researchStudy', v.id] });
+    },
+  });
+}
+
+export function useDeleteResearchStudy() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ message: string }>(`/research/studies/${id}`, { method: 'DELETE', token: token || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['researchStudies'] }),
+  });
+}
+
+export function useResearchParticipants(studyId: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['researchParticipants', studyId],
+    queryFn: () => api<ResearchParticipant[]>(`/research/studies/${studyId}/participants`, { token: token || undefined }),
+    enabled: !!studyId,
+  });
+}
+
+export function useCreateResearchParticipant() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studyId, data }: { studyId: string; data: { userId: string; studyCode: string; role: string } }) =>
+      api<ResearchParticipant>(`/research/studies/${studyId}/participants`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: ['researchParticipants', v.studyId] }),
+  });
+}
+
+export function useResearchSurveys(studyId: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['researchSurveys', studyId],
+    queryFn: () => api<ResearchSurvey[]>(`/research/studies/${studyId}/surveys`, { token: token || undefined }),
+    enabled: !!studyId,
+  });
+}
+
+export function useCreateResearchSurvey() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studyId, data }: { studyId: string; data: { title: string; description?: string } }) =>
+      api<ResearchSurvey>(`/research/studies/${studyId}/surveys`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: ['researchSurveys', v.studyId] }),
+  });
+}
+
+export function useResearchMetrics(studyId: string, filters?: { metricName?: string; period?: string }) {
+  const { token } = useAuth();
+  const params = new URLSearchParams();
+  if (filters?.metricName) params.set('metricName', filters.metricName);
+  if (filters?.period) params.set('period', filters.period);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['researchMetrics', studyId, filters],
+    queryFn: () => api<ResearchMetric[]>(`/research/studies/${studyId}/metrics${qs ? `?${qs}` : ''}`, { token: token || undefined }),
+    enabled: !!studyId,
+  });
+}
+
+export function useCreateResearchMetric() {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studyId, data }: { studyId: string; data: { participantId?: string; metricName: string; metricValue: unknown; period: string; source?: string } }) =>
+      api<ResearchMetric>(`/research/studies/${studyId}/metrics`, { method: 'POST', body: data, token: token || undefined }),
+    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: ['researchMetrics', v.studyId] }),
+  });
+}
